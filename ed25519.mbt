@@ -51,6 +51,13 @@ pub struct SigningKey {
 }
 
 ///|
+/// Expanded Ed25519 verifying key for repeated verification.
+pub struct VerifyingKey {
+  priv public_key : Array[UInt]
+  priv neg_public_key_window5_table : Array[ExtendedPoint]
+}
+
+///|
 fn base_point() -> ExtendedPoint {
   extended_from_affine({ x: bx, y: by })
 }
@@ -467,6 +474,58 @@ pub fn SigningKey::sign(
 }
 
 ///|
+/// Create an expanded verifying key from a 32-byte Ed25519 public key.
+pub fn VerifyingKey::from_public_key(
+  public_key : Array[UInt],
+) -> Result[VerifyingKey, String] {
+  match validate_bytes(public_key, 32, "public key") {
+    Err(message) => return Err(message)
+    Ok(_) => ()
+  }
+  let point = match decode_point(public_key) {
+    Err(message) => return Err(message)
+    Ok(point) => point
+  }
+  Ok(VerifyingKey::{
+    public_key: clone_bytes(public_key),
+    neg_public_key_window5_table: extended_window5_table(
+      extended_neg(extended_from_affine(point)),
+    ),
+  })
+}
+
+///|
+/// Return a copy of the 32-byte public key for this verifying key.
+pub fn VerifyingKey::public_key(self : VerifyingKey) -> Array[UInt] {
+  clone_bytes(self.public_key)
+}
+
+///|
+/// Verify a signature with a pre-expanded verifying key.
+pub fn VerifyingKey::verify(
+  self : VerifyingKey,
+  message : Array[UInt],
+  signature : Array[UInt],
+) -> Bool {
+  self.verify_result(message, signature).unwrap_or(false)
+}
+
+///|
+/// Verify a signature with a pre-expanded verifying key and report malformed inputs.
+pub fn VerifyingKey::verify_result(
+  self : VerifyingKey,
+  message : Array[UInt],
+  signature : Array[UInt],
+) -> Result[Bool, String] {
+  verify_with_neg_public_key_table(
+    self.public_key,
+    self.neg_public_key_window5_table,
+    message,
+    signature,
+  )
+}
+
+///|
 /// Derive a 32-byte Ed25519 public key from a 32-byte private seed.
 pub fn derive_public_key(seed : Array[UInt]) -> Result[Array[UInt], String] {
   match expanded_secret(seed) {
@@ -507,11 +566,30 @@ pub fn verify_result(
   message : Array[UInt],
   signature : Array[UInt],
 ) -> Result[Bool, String] {
-  match validate_byte_values(message, "message") {
+  match validate_bytes(public_key, 32, "public key") {
     Err(message) => return Err(message)
     Ok(_) => ()
   }
-  match validate_bytes(public_key, 32, "public key") {
+  let a = match decode_point(public_key) {
+    Err(message) => return Err(message)
+    Ok(point) => point
+  }
+  verify_with_neg_public_key_table(
+    public_key,
+    extended_window5_table(extended_neg(extended_from_affine(a))),
+    message,
+    signature,
+  )
+}
+
+///|
+fn verify_with_neg_public_key_table(
+  public_key : Array[UInt],
+  neg_public_key_window5_table : Array[ExtendedPoint],
+  message : Array[UInt],
+  signature : Array[UInt],
+) -> Result[Bool, String] {
+  match validate_byte_values(message, "message") {
     Err(message) => return Err(message)
     Ok(_) => ()
   }
@@ -525,10 +603,6 @@ pub fn verify_result(
   if s >= l {
     return Ok(false)
   }
-  let a = match decode_point(public_key) {
-    Err(message) => return Err(message)
-    Ok(point) => point
-  }
   let r = match decode_point(r_encoded) {
     Err(message) => return Err(message)
     Ok(point) => point
@@ -537,10 +611,7 @@ pub fn verify_result(
     bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
   )
   let combined = extended_mul_two_with_window5_tables(
-    s,
-    base_point_window5_table,
-    k,
-    extended_window5_table(extended_neg(extended_from_affine(a))),
+    s, base_point_window5_table, k, neg_public_key_window5_table,
   )
   Ok(extended_equal(combined, extended_from_affine(r)))
 }

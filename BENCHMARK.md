@@ -104,6 +104,17 @@ Captured with `moon bench --release` on 2026-05-05:
 | verify license-sized payload | 3.67 ms | 2.67 ms | 27.25% |
 | verify OpenSSL Ed25519 signature | 3.66 ms | 2.69 ms | 26.50% |
 
+### Cached VerifyingKey API
+
+Added `VerifyingKey::from_public_key` to cache public-key decoding and the `-A` verification window table. This is useful when the same product public key verifies many license payloads.
+
+Captured with `moon bench --release` on 2026-05-05:
+
+| Case | Ordinary verify | Cached VerifyingKey verify | Latency reduction |
+| ---- | --------------- | -------------------------- | ----------------- |
+| verify license-sized payload | 2.66 ms | 2.01 ms | 24.44% |
+| verify OpenSSL Ed25519 signature | 2.66 ms | 2.00 ms | 24.81% |
+
 For full validation after optimization:
 
 ```bash

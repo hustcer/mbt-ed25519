@@ -67,6 +67,18 @@ test "bench: verify license-sized payload" (b : @bench.T) {
 }
 
 ///|
+test "bench: verify license-sized payload with cached VerifyingKey" (
+  b : @bench.T,
+) {
+  let seed = bench_seed()
+  let message = bench_license_payload()
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+  let signature = @ed25519.sign(seed, message).unwrap()
+  b.bench(fn() { b.keep(verifying_key.verify(message, signature)) })
+}
+
+///|
 test "bench: verify OpenSSL Ed25519 signature" (b : @bench.T) {
   let message = bench_hex(
     "733866792d6c6963656e73653a7b22637573746f6d65724964223a2273656c66222c" +
@@ -80,4 +92,23 @@ test "bench: verify OpenSSL Ed25519 signature" (b : @bench.T) {
     "b2ae98c9489542ed6cd33a5cd65c6cfb10af7310afb400ea392992c263cf2400",
   )
   b.bench(fn() { b.keep(@ed25519.verify(public_key, message, signature)) })
+}
+
+///|
+test "bench: verify OpenSSL Ed25519 signature with cached VerifyingKey" (
+  b : @bench.T,
+) {
+  let message = bench_hex(
+    "733866792d6c6963656e73653a7b22637573746f6d65724964223a2273656c66222c" +
+    "22657870697265734174223a22323032372d30352d3035227d",
+  )
+  let public_key = bench_hex(
+    "74e90e5ff7e46c80ec509272bee032de8b3471e8544f144d0826f7a353aad576",
+  )
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+  let signature = bench_hex(
+    "74f52c4d97e4c97eca42b27d242f8505791cafa00eb3f4a7ffea5f7520e92e36" +
+    "b2ae98c9489542ed6cd33a5cd65c6cfb10af7310afb400ea392992c263cf2400",
+  )
+  b.bench(fn() { b.keep(verifying_key.verify(message, signature)) })
 }

@@ -126,6 +126,9 @@ test "openssl interop: verifies external Ed25519 signature" {
     "b2ae98c9489542ed6cd33a5cd65c6cfb10af7310afb400ea392992c263cf2400",
   )
   assert_true(@ed25519.verify(public_key, message, signature))
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+  assert_eq(verifying_key.public_key(), public_key)
+  assert_true(verifying_key.verify(message, signature))
 }
 
 ///|
@@ -134,6 +137,10 @@ test "malformed inputs return errors" {
   match @ed25519.SigningKey::from_seed([]) {
     Err(message) => assert_eq(message, "seed must be 32 bytes")
     Ok(_) => abort("expected invalid seed to fail")
+  }
+  match @ed25519.VerifyingKey::from_public_key([]) {
+    Err(message) => assert_eq(message, "public key must be 32 bytes")
+    Ok(_) => abort("expected invalid public key to fail")
   }
   assert_eq(@ed25519.sign([], []), Err("seed must be 32 bytes"))
   assert_eq(

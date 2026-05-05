@@ -20,6 +20,14 @@ pub fn SigningKey::from_seed(Array[UInt]) -> Result[Self, String]
 pub fn SigningKey::public_key(Self) -> Array[UInt]
 pub fn SigningKey::sign(Self, Array[UInt]) -> Result[Array[UInt], String]
 
+pub struct VerifyingKey {
+  // private fields
+}
+pub fn VerifyingKey::from_public_key(Array[UInt]) -> Result[Self, String]
+pub fn VerifyingKey::public_key(Self) -> Array[UInt]
+pub fn VerifyingKey::verify(Self, Array[UInt], Array[UInt]) -> Bool
+pub fn VerifyingKey::verify_result(Self, Array[UInt], Array[UInt]) -> Result[Bool, String]
+
 // Type aliases
 
 // Traits
