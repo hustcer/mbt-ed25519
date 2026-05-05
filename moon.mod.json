@@ -2,7 +2,7 @@
   "name": "hustcer/ed25519",
   "version": "0.1.0",
   "readme": "README.mbt.md",
-  "repository": "",
+  "repository": "git@github.com:hustcer/mbt-ed25519.git",
   "license": "Apache-2.0",
   "keywords": ["ed25519", "signature", "crypto", "license"],
   "description": "A pure MoonBit Ed25519 signing and verification package.",
