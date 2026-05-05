@@ -13,6 +13,12 @@ pub fn verify_result(Array[UInt], Array[UInt], Array[UInt]) -> Result[Bool, Stri
 // Errors
 
 // Types and methods
+pub struct SigningKey {
+  // private fields
+}
+pub fn SigningKey::from_seed(Array[UInt]) -> Result[Self, String]
+pub fn SigningKey::public_key(Self) -> Array[UInt]
+pub fn SigningKey::sign(Self, Array[UInt]) -> Result[Array[UInt], String]
 
 // Type aliases
 

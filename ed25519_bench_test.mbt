@@ -51,6 +51,13 @@ test "bench: sign license-sized payload" (b : @bench.T) {
 }
 
 ///|
+test "bench: sign license-sized payload with cached SigningKey" (b : @bench.T) {
+  let signing_key = @ed25519.SigningKey::from_seed(bench_seed()).unwrap()
+  let message = bench_license_payload()
+  b.bench(fn() { b.keep(signing_key.sign(message).unwrap()) })
+}
+
+///|
 test "bench: verify license-sized payload" (b : @bench.T) {
   let seed = bench_seed()
   let message = bench_license_payload()

@@ -19,9 +19,16 @@ pub fn verify_result(
   message : Array[UInt],
   signature : Array[UInt]
 ) -> Result[Bool, String]
+
+pub struct SigningKey
+pub fn SigningKey::from_seed(seed : Array[UInt]) -> Result[SigningKey, String]
+pub fn SigningKey::public_key(self : SigningKey) -> Array[UInt]
+pub fn SigningKey::sign(self : SigningKey, message : Array[UInt]) -> Result[Array[UInt], String]
 ```
 
 Inputs use `Array[UInt]` byte arrays. Every byte must be in `0..255`.
+
+For repeated license signing, prefer `SigningKey::from_seed` once and then call `signing_key.sign(message)` for each payload. That avoids re-expanding the seed and re-deriving the public key for every signature.
 
 ## Notes
 

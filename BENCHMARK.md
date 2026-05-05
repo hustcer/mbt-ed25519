@@ -69,6 +69,16 @@ Captured with `moon bench --release` on 2026-05-05:
 | verify license-sized payload | 3.74 ms | 3.69 ms | 1.34% |
 | verify OpenSSL Ed25519 signature | 3.74 ms | 3.64 ms | 2.67% |
 
+### Cached SigningKey API
+
+Added `SigningKey::from_seed` to cache the expanded scalar, prefix, and public key for repeated signing. This avoids re-expanding the seed and re-deriving the public key for each license payload.
+
+Captured with `moon bench --release` on 2026-05-05:
+
+| Case | Ordinary sign | Cached SigningKey sign | Latency reduction |
+| ---- | ------------- | ---------------------- | ----------------- |
+| sign license-sized payload | 3.14 ms | 1.58 ms | 49.68% |
+
 For full validation after optimization:
 
 ```bash

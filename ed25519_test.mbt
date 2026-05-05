@@ -39,6 +39,9 @@ test "rfc8032 vector 1: empty message" {
   )
   assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
   assert_eq(@ed25519.sign(seed, []), Ok(signature))
+  let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
+  assert_eq(signing_key.public_key(), public_key)
+  assert_eq(signing_key.sign([]), Ok(signature))
   assert_true(@ed25519.verify(public_key, [], signature))
 }
 
@@ -128,6 +131,10 @@ test "openssl interop: verifies external Ed25519 signature" {
 ///|
 test "malformed inputs return errors" {
   assert_eq(@ed25519.derive_public_key([]), Err("seed must be 32 bytes"))
+  match @ed25519.SigningKey::from_seed([]) {
+    Err(message) => assert_eq(message, "seed must be 32 bytes")
+    Ok(_) => abort("expected invalid seed to fail")
+  }
   assert_eq(@ed25519.sign([], []), Err("seed must be 32 bytes"))
   assert_eq(
     @ed25519.sign(

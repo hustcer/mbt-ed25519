@@ -43,6 +43,14 @@ priv struct ExtendedPoint {
 }
 
 ///|
+/// Expanded Ed25519 signing key for repeated signing with the same seed.
+pub struct SigningKey {
+  priv a : BigInt
+  priv prefix : Array[UInt]
+  priv public_key : Array[UInt]
+}
+
+///|
 fn base_point() -> ExtendedPoint {
   extended_from_affine({ x: bx, y: by })
 }
@@ -246,6 +254,15 @@ fn concat3(a : Array[UInt], b : Array[UInt], c : Array[UInt]) -> Array[UInt] {
 }
 
 ///|
+fn clone_bytes(bytes : Array[UInt]) -> Array[UInt] {
+  let out : Array[UInt] = []
+  for byte in bytes {
+    out.push(byte)
+  }
+  out
+}
+
+///|
 fn slice_bytes(bytes : Array[UInt], start : Int, end : Int) -> Array[UInt] {
   let out : Array[UInt] = []
   for i = start; i < end; i = i + 1 {
@@ -363,6 +380,53 @@ fn expanded_secret(seed : Array[UInt]) -> Result[(BigInt, Array[UInt]), String] 
 }
 
 ///|
+fn sign_with_expanded_key(
+  a : BigInt,
+  prefix : Array[UInt],
+  public_key : Array[UInt],
+  message : Array[UInt],
+) -> Result[Array[UInt], String] {
+  match validate_byte_values(message, "message") {
+    Err(message) => return Err(message)
+    Ok(_) => ()
+  }
+  let r = modl(bytes_le_to_bigint(sha512(concat2(prefix, message))))
+  let r_encoded = encode_extended_point(base_point_mul(r))
+  let k = modl(
+    bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
+  )
+  let s = modl(r + k * a)
+  Ok(concat2(r_encoded, bigint_to_le_bytes(s, 32)))
+}
+
+///|
+/// Create an expanded signing key from a 32-byte Ed25519 private seed.
+pub fn SigningKey::from_seed(seed : Array[UInt]) -> Result[SigningKey, String] {
+  match expanded_secret(seed) {
+    Err(message) => Err(message)
+    Ok((a, prefix)) => {
+      let public_key = encode_extended_point(base_point_mul(a))
+      Ok(SigningKey::{ a, prefix, public_key })
+    }
+  }
+}
+
+///|
+/// Return a copy of the 32-byte public key for this signing key.
+pub fn SigningKey::public_key(self : SigningKey) -> Array[UInt] {
+  clone_bytes(self.public_key)
+}
+
+///|
+/// Sign a message with a pre-expanded Ed25519 signing key.
+pub fn SigningKey::sign(
+  self : SigningKey,
+  message : Array[UInt],
+) -> Result[Array[UInt], String] {
+  sign_with_expanded_key(self.a, self.prefix, self.public_key, message)
+}
+
+///|
 /// Derive a 32-byte Ed25519 public key from a 32-byte private seed.
 pub fn derive_public_key(seed : Array[UInt]) -> Result[Array[UInt], String] {
   match expanded_secret(seed) {
@@ -377,21 +441,11 @@ pub fn sign(
   seed : Array[UInt],
   message : Array[UInt],
 ) -> Result[Array[UInt], String] {
-  match validate_byte_values(message, "message") {
-    Err(message) => return Err(message)
-    Ok(_) => ()
-  }
   match expanded_secret(seed) {
     Err(message) => Err(message)
     Ok((a, prefix)) => {
       let public_key = encode_extended_point(base_point_mul(a))
-      let r = modl(bytes_le_to_bigint(sha512(concat2(prefix, message))))
-      let r_encoded = encode_extended_point(base_point_mul(r))
-      let k = modl(
-        bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
-      )
-      let s = modl(r + k * a)
-      Ok(concat2(r_encoded, bigint_to_le_bytes(s, 32)))
+      sign_with_expanded_key(a, prefix, public_key, message)
     }
   }
 }
