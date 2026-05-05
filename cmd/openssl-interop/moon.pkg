@@ -1,0 +1,8 @@
+import {
+  "hustcer/ed25519" @ed25519,
+  "moonbitlang/core/argparse",
+}
+
+options(
+  "is-main": true,
+)

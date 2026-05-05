@@ -57,3 +57,13 @@ moon bench --release
 ```
 
 See `BENCHMARK.md` for the benchmark cases and workflow.
+
+## OpenSSL Interop Check
+
+Run:
+
+```bash
+nu scripts/openssl-interop.nu
+```
+
+The script generates an OpenSSL Ed25519 key, extracts the 32-byte seed, signs the same payload with OpenSSL and this package, then checks that public keys and signatures are identical. It also performs cross verification in both directions.
