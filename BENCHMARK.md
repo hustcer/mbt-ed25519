@@ -28,6 +28,21 @@ Captured with `moon bench --release` on 2026-05-05:
 
 These numbers should be treated as a local baseline, not a portability guarantee. They are useful for comparing optimization branches on the same machine and MoonBit toolchain.
 
+## Optimization History
+
+### Extended Edwards Coordinates
+
+Replaced affine scalar multiplication with extended Edwards coordinates so point addition and doubling no longer perform a field inversion on every step.
+
+Captured with `moon bench --release` on 2026-05-05:
+
+| Case | Before | After | Latency reduction |
+| ---- | ------ | ----- | ----------------- |
+| derive public key from seed | 185.36 ms | 1.92 ms | 98.96% |
+| sign license-sized payload | 373.24 ms | 3.89 ms | 98.96% |
+| verify license-sized payload | 381.89 ms | 4.45 ms | 98.83% |
+| verify OpenSSL Ed25519 signature | 369.25 ms | 4.36 ms | 98.82% |
+
 For full validation after optimization:
 
 ```bash

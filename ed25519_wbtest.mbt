@@ -54,7 +54,7 @@ test "nonce scalar matches RFC8032 vector 1" {
   )
   assert_eq(bigint_to_le_bytes(r, 32), expected)
   assert_eq(
-    encode_point(point_mul(r, base_point())),
+    encode_extended_point(extended_mul(r, base_point())),
     wb_hex("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155"),
   )
 }

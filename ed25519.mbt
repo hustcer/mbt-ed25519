@@ -32,16 +32,24 @@ let by : BigInt = BigInt::from_string(
 priv struct Point {
   x : BigInt
   y : BigInt
-} derive(Eq)
-
-///|
-fn base_point() -> Point {
-  { x: bx, y: by }
 }
 
 ///|
-fn identity() -> Point {
-  { x: 0N, y: 1N }
+priv struct ExtendedPoint {
+  x : BigInt
+  y : BigInt
+  z : BigInt
+  t : BigInt
+}
+
+///|
+fn base_point() -> ExtendedPoint {
+  extended_from_affine({ x: bx, y: by })
+}
+
+///|
+fn extended_identity() -> ExtendedPoint {
+  { x: 0N, y: 1N, z: 1N, t: 0N }
 }
 
 ///|
@@ -75,29 +83,67 @@ fn field_eq(a : BigInt, b : BigInt) -> Bool {
 }
 
 ///|
-fn point_add(a : Point, b : Point) -> Point {
-  let x1 = a.x
-  let y1 = a.y
-  let x2 = b.x
-  let y2 = b.y
-  let xyxy = modp(x1 * x2 * y1 * y2)
-  let x_num = modp(x1 * y2 + x2 * y1)
-  let x_den = modp(1N + d * xyxy)
-  let y_num = modp(y1 * y2 + x1 * x2)
-  let y_den = modp(1N - d * xyxy)
-  { x: modp(x_num * invp(x_den)), y: modp(y_num * invp(y_den)) }
+fn extended_from_affine(point : Point) -> ExtendedPoint {
+  { x: modp(point.x), y: modp(point.y), z: 1N, t: modp(point.x * point.y) }
 }
 
 ///|
-fn point_mul(s : BigInt, point : Point) -> Point {
+fn extended_to_affine(point : ExtendedPoint) -> Point {
+  let iz = invp(point.z)
+  { x: modp(point.x * iz), y: modp(point.y * iz) }
+}
+
+///|
+fn extended_equal(a : ExtendedPoint, b : ExtendedPoint) -> Bool {
+  field_eq(a.x * b.z, b.x * a.z) && field_eq(a.y * b.z, b.y * a.z)
+}
+
+///|
+fn extended_add(a : ExtendedPoint, b : ExtendedPoint) -> ExtendedPoint {
+  let a_term = modp((a.y - a.x) * (b.y - b.x))
+  let b_term = modp((a.y + a.x) * (b.y + b.x))
+  let c_term = modp(2N * d * a.t * b.t)
+  let d_term = modp(2N * a.z * b.z)
+  let e_term = modp(b_term - a_term)
+  let f_term = modp(d_term - c_term)
+  let g_term = modp(d_term + c_term)
+  let h_term = modp(b_term + a_term)
+  {
+    x: modp(e_term * f_term),
+    y: modp(g_term * h_term),
+    z: modp(f_term * g_term),
+    t: modp(e_term * h_term),
+  }
+}
+
+///|
+fn extended_double(point : ExtendedPoint) -> ExtendedPoint {
+  let a_term = modp(point.x * point.x)
+  let b_term = modp(point.y * point.y)
+  let c_term = modp(2N * point.z * point.z)
+  let d_term = modp(-a_term)
+  let e_term = modp((point.x + point.y) * (point.x + point.y) - a_term - b_term)
+  let g_term = modp(d_term + b_term)
+  let f_term = modp(g_term - c_term)
+  let h_term = modp(d_term - b_term)
+  {
+    x: modp(e_term * f_term),
+    y: modp(g_term * h_term),
+    z: modp(f_term * g_term),
+    t: modp(e_term * h_term),
+  }
+}
+
+///|
+fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
   let mut n = s
-  let mut acc = identity()
+  let mut acc = extended_identity()
   let mut addend = point
   while n > 0N {
     if n % 2N == 1N {
-      acc = point_add(acc, addend)
+      acc = extended_add(acc, addend)
     }
-    addend = point_add(addend, addend)
+    addend = extended_double(addend)
     n = n / 2N
   }
   acc
@@ -223,6 +269,11 @@ fn encode_point(point : Point) -> Array[UInt] {
 }
 
 ///|
+fn encode_extended_point(point : ExtendedPoint) -> Array[UInt] {
+  encode_point(extended_to_affine(point))
+}
+
+///|
 fn decode_point(bytes : Array[UInt]) -> Result[Point, String] {
   match validate_bytes(bytes, 32, "encoded point") {
     Err(message) => return Err(message)
@@ -272,7 +323,7 @@ fn expanded_secret(seed : Array[UInt]) -> Result[(BigInt, Array[UInt]), String] 
 pub fn derive_public_key(seed : Array[UInt]) -> Result[Array[UInt], String] {
   match expanded_secret(seed) {
     Err(message) => Err(message)
-    Ok((a, _prefix)) => Ok(encode_point(point_mul(a, base_point())))
+    Ok((a, _prefix)) => Ok(encode_extended_point(extended_mul(a, base_point())))
   }
 }
 
@@ -289,9 +340,9 @@ pub fn sign(
   match expanded_secret(seed) {
     Err(message) => Err(message)
     Ok((a, prefix)) => {
-      let public_key = encode_point(point_mul(a, base_point()))
+      let public_key = encode_extended_point(extended_mul(a, base_point()))
       let r = modl(bytes_le_to_bigint(sha512(concat2(prefix, message))))
-      let r_encoded = encode_point(point_mul(r, base_point()))
+      let r_encoded = encode_extended_point(extended_mul(r, base_point()))
       let k = modl(
         bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
       )
@@ -347,7 +398,10 @@ pub fn verify_result(
   let k = modl(
     bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
   )
-  let left = point_mul(s, base_point())
-  let right = point_add(r, point_mul(k, a))
-  Ok(left == right)
+  let left = extended_mul(s, base_point())
+  let right = extended_add(
+    extended_from_affine(r),
+    extended_mul(k, extended_from_affine(a)),
+  )
+  Ok(extended_equal(left, right))
 }
