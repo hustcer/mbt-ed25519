@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hustcer/ed25519"
+
+// Values
+pub fn derive_public_key(Array[UInt]) -> Result[Array[UInt], String]
+
+pub fn sign(Array[UInt], Array[UInt]) -> Result[Array[UInt], String]
+
+pub fn verify(Array[UInt], Array[UInt], Array[UInt]) -> Bool
+
+pub fn verify_result(Array[UInt], Array[UInt], Array[UInt]) -> Result[Bool, String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

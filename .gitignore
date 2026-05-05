@@ -1,0 +1,10 @@
+.tmp*/
+_build/
+target/
+.moon/
+.mooncakes/
+*.wasm
+*.wat
+findings.md
+progress.md
+task_plan.md
