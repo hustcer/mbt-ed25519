@@ -143,37 +143,38 @@ fn extended_double(point : ExtendedPoint) -> ExtendedPoint {
 }
 
 ///|
-fn extended_window4_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
+fn extended_window5_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
   let table : Array[ExtendedPoint] = []
   table.push(extended_identity())
-  for i in 1..<16 {
+  for i in 1..<32 {
     table.push(extended_add(table[i - 1], point))
   }
   table
 }
 
 ///|
-fn scalar_window4_digits(s : BigInt) -> Array[Int] {
+fn scalar_window5_digits(s : BigInt) -> Array[Int] {
   let digits : Array[Int] = []
   let mut n = s
   while n > 0N {
-    digits.push((n % 16N).to_int())
-    n = n / 16N
+    digits.push((n % 32N).to_int())
+    n = n / 32N
   }
   digits
 }
 
 ///|
-fn extended_mul_with_window4_table(
+fn extended_mul_with_window5_table(
   s : BigInt,
   table : Array[ExtendedPoint],
 ) -> ExtendedPoint {
-  let digits = scalar_window4_digits(s)
+  let digits = scalar_window5_digits(s)
   if digits.length() == 0 {
     return extended_identity()
   }
   let mut acc = extended_identity()
   for i = digits.length() - 1; i >= 0; i = i - 1 {
+    acc = extended_double(acc)
     acc = extended_double(acc)
     acc = extended_double(acc)
     acc = extended_double(acc)
@@ -188,17 +189,17 @@ fn extended_mul_with_window4_table(
 
 ///|
 fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
-  extended_mul_with_window4_table(s, extended_window4_table(point))
+  extended_mul_with_window5_table(s, extended_window5_table(point))
 }
 
 ///|
-let base_point_window4_table : Array[ExtendedPoint] = extended_window4_table(
+let base_point_window5_table : Array[ExtendedPoint] = extended_window5_table(
   base_point(),
 )
 
 ///|
 fn base_point_mul(s : BigInt) -> ExtendedPoint {
-  extended_mul_with_window4_table(s, base_point_window4_table)
+  extended_mul_with_window5_table(s, base_point_window5_table)
 }
 
 ///|

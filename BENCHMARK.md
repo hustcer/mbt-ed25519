@@ -79,6 +79,20 @@ Captured with `moon bench --release` on 2026-05-05:
 | ---- | ------------- | ---------------------- | ----------------- |
 | sign license-sized payload | 3.14 ms | 1.58 ms | 49.68% |
 
+### 5-bit Scalar Windows
+
+Increased scalar multiplication windows from 4 bits to 5 bits. This uses a larger table but reduces the number of runtime windows and additions.
+
+Captured with `moon bench --release` on 2026-05-05:
+
+| Case | Before | After | Latency reduction |
+| ---- | ------ | ----- | ----------------- |
+| derive public key from seed | 1.58 ms | 1.56 ms | 1.27% |
+| sign license-sized payload | 3.14 ms | 3.09 ms | 1.59% |
+| sign license-sized payload with cached SigningKey | 1.58 ms | 1.54 ms | 2.53% |
+| verify license-sized payload | 3.75 ms | 3.67 ms | 2.13% |
+| verify OpenSSL Ed25519 signature | 3.74 ms | 3.66 ms | 2.14% |
+
 For full validation after optimization:
 
 ```bash
