@@ -58,3 +58,15 @@ test "nonce scalar matches RFC8032 vector 1" {
     wb_hex("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155"),
   )
 }
+
+///|
+test "windowed scalar multiplication handles identity and base point" {
+  assert_eq(
+    encode_extended_point(extended_mul(0N, base_point())),
+    wb_hex("0100000000000000000000000000000000000000000000000000000000000000"),
+  )
+  assert_eq(
+    encode_extended_point(extended_mul(1N, base_point())),
+    wb_hex("5866666666666666666666666666666666666666666666666666666666666666"),
+  )
+}

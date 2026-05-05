@@ -135,16 +135,43 @@ fn extended_double(point : ExtendedPoint) -> ExtendedPoint {
 }
 
 ///|
-fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
+fn extended_window4_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
+  let table : Array[ExtendedPoint] = []
+  table.push(extended_identity())
+  for i in 1..<16 {
+    table.push(extended_add(table[i - 1], point))
+  }
+  table
+}
+
+///|
+fn scalar_window4_digits(s : BigInt) -> Array[Int] {
+  let digits : Array[Int] = []
   let mut n = s
-  let mut acc = extended_identity()
-  let mut addend = point
   while n > 0N {
-    if n % 2N == 1N {
-      acc = extended_add(acc, addend)
+    digits.push((n % 16N).to_int())
+    n = n / 16N
+  }
+  digits
+}
+
+///|
+fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
+  let digits = scalar_window4_digits(s)
+  if digits.length() == 0 {
+    return extended_identity()
+  }
+  let table = extended_window4_table(point)
+  let mut acc = extended_identity()
+  for i = digits.length() - 1; i >= 0; i = i - 1 {
+    acc = extended_double(acc)
+    acc = extended_double(acc)
+    acc = extended_double(acc)
+    acc = extended_double(acc)
+    let digit = digits[i]
+    if digit != 0 {
+      acc = extended_add(acc, table[digit])
     }
-    addend = extended_double(addend)
-    n = n / 2N
   }
   acc
 }

@@ -43,6 +43,19 @@ Captured with `moon bench --release` on 2026-05-05:
 | verify license-sized payload | 381.89 ms | 4.45 ms | 98.83% |
 | verify OpenSSL Ed25519 signature | 369.25 ms | 4.36 ms | 98.82% |
 
+### 4-bit Fixed-window Scalar Multiplication
+
+Changed scalar multiplication from bit-by-bit double-and-add to a 4-bit fixed-window method. This keeps the extended-coordinate formulas but reduces point additions during scalar multiplication.
+
+Captured with `moon bench --release` on 2026-05-05:
+
+| Case | Before | After | Latency reduction |
+| ---- | ------ | ----- | ----------------- |
+| derive public key from seed | 1.92 ms | 1.63 ms | 15.10% |
+| sign license-sized payload | 3.89 ms | 3.24 ms | 16.71% |
+| verify license-sized payload | 4.45 ms | 3.74 ms | 15.96% |
+| verify OpenSSL Ed25519 signature | 4.36 ms | 3.74 ms | 14.22% |
+
 For full validation after optimization:
 
 ```bash
