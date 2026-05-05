@@ -1,3 +1,4 @@
 import {
   "Tigls/mb-hash/sha2" @sha2,
+  "moonbitlang/core/bench",
 }

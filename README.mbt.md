@@ -28,3 +28,13 @@ Inputs use `Array[UInt]` byte arrays. Every byte must be in `0..255`.
 The package is correctness-first and uses MoonBit `BigInt` arithmetic. That is enough for license signing and verification payloads, but it is not intended to be a constant-time general-purpose cryptography primitive yet.
 
 Use a mature audited implementation for high-volume or side-channel-sensitive server cryptography. For S8FY, the recommended use is to sign license payloads offline and verify signatures inside the license policy layer.
+
+## Benchmarks
+
+Run:
+
+```bash
+moon bench --release
+```
+
+See `BENCHMARK.md` for the benchmark cases and workflow.
