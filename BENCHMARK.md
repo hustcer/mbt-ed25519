@@ -93,6 +93,17 @@ Captured with `moon bench --release` on 2026-05-05:
 | verify license-sized payload | 3.75 ms | 3.67 ms | 2.13% |
 | verify OpenSSL Ed25519 signature | 3.74 ms | 3.66 ms | 2.14% |
 
+### Interleaved Double-scalar Verification
+
+Changed verification to compute `S*B - k*A` with an interleaved double-scalar multiplication and compare the result with `R`. This avoids doing two fully separate scalar multiplications during verification.
+
+Captured with `moon bench --release` on 2026-05-05:
+
+| Case | Before | After | Latency reduction |
+| ---- | ------ | ----- | ----------------- |
+| verify license-sized payload | 3.67 ms | 2.67 ms | 27.25% |
+| verify OpenSSL Ed25519 signature | 3.66 ms | 2.69 ms | 26.50% |
+
 For full validation after optimization:
 
 ```bash

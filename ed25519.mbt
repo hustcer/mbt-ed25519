@@ -107,6 +107,11 @@ fn extended_equal(a : ExtendedPoint, b : ExtendedPoint) -> Bool {
 }
 
 ///|
+fn extended_neg(point : ExtendedPoint) -> ExtendedPoint {
+  { x: modp(-point.x), y: point.y, z: point.z, t: modp(-point.t) }
+}
+
+///|
 fn extended_add(a : ExtendedPoint, b : ExtendedPoint) -> ExtendedPoint {
   let a_term = modp((a.y - a.x) * (b.y - b.x))
   let b_term = modp((a.y + a.x) * (b.y + b.x))
@@ -188,8 +193,42 @@ fn extended_mul_with_window5_table(
 }
 
 ///|
-fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
-  extended_mul_with_window5_table(s, extended_window5_table(point))
+fn extended_mul_two_with_window5_tables(
+  a_scalar : BigInt,
+  a_table : Array[ExtendedPoint],
+  b_scalar : BigInt,
+  b_table : Array[ExtendedPoint],
+) -> ExtendedPoint {
+  let a_digits = scalar_window5_digits(a_scalar)
+  let b_digits = scalar_window5_digits(b_scalar)
+  let mut len = a_digits.length()
+  if b_digits.length() > len {
+    len = b_digits.length()
+  }
+  if len == 0 {
+    return extended_identity()
+  }
+  let mut acc = extended_identity()
+  for i = len - 1; i >= 0; i = i - 1 {
+    acc = extended_double(acc)
+    acc = extended_double(acc)
+    acc = extended_double(acc)
+    acc = extended_double(acc)
+    acc = extended_double(acc)
+    if i < a_digits.length() {
+      let digit = a_digits[i]
+      if digit != 0 {
+        acc = extended_add(acc, a_table[digit])
+      }
+    }
+    if i < b_digits.length() {
+      let digit = b_digits[i]
+      if digit != 0 {
+        acc = extended_add(acc, b_table[digit])
+      }
+    }
+  }
+  acc
 }
 
 ///|
@@ -497,10 +536,11 @@ pub fn verify_result(
   let k = modl(
     bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
   )
-  let left = base_point_mul(s)
-  let right = extended_add(
-    extended_from_affine(r),
-    extended_mul(k, extended_from_affine(a)),
+  let combined = extended_mul_two_with_window5_tables(
+    s,
+    base_point_window5_table,
+    k,
+    extended_window5_table(extended_neg(extended_from_affine(a))),
   )
-  Ok(extended_equal(left, right))
+  Ok(extended_equal(combined, extended_from_affine(r)))
 }
