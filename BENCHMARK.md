@@ -56,6 +56,19 @@ Captured with `moon bench --release` on 2026-05-05:
 | verify license-sized payload | 4.45 ms | 3.74 ms | 15.96% |
 | verify OpenSSL Ed25519 signature | 4.36 ms | 3.74 ms | 14.22% |
 
+### Cached Basepoint Window Table
+
+Cached the 4-bit window table for the fixed Ed25519 base point. This avoids rebuilding the same table for `a*B`, `r*B`, and `S*B`.
+
+Captured with `moon bench --release` on 2026-05-05:
+
+| Case | Before | After | Latency reduction |
+| ---- | ------ | ----- | ----------------- |
+| derive public key from seed | 1.63 ms | 1.58 ms | 3.07% |
+| sign license-sized payload | 3.24 ms | 3.13 ms | 3.40% |
+| verify license-sized payload | 3.74 ms | 3.69 ms | 1.34% |
+| verify OpenSSL Ed25519 signature | 3.74 ms | 3.64 ms | 2.67% |
+
 For full validation after optimization:
 
 ```bash

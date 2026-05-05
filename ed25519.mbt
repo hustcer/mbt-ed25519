@@ -156,12 +156,14 @@ fn scalar_window4_digits(s : BigInt) -> Array[Int] {
 }
 
 ///|
-fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
+fn extended_mul_with_window4_table(
+  s : BigInt,
+  table : Array[ExtendedPoint],
+) -> ExtendedPoint {
   let digits = scalar_window4_digits(s)
   if digits.length() == 0 {
     return extended_identity()
   }
-  let table = extended_window4_table(point)
   let mut acc = extended_identity()
   for i = digits.length() - 1; i >= 0; i = i - 1 {
     acc = extended_double(acc)
@@ -174,6 +176,21 @@ fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
     }
   }
   acc
+}
+
+///|
+fn extended_mul(s : BigInt, point : ExtendedPoint) -> ExtendedPoint {
+  extended_mul_with_window4_table(s, extended_window4_table(point))
+}
+
+///|
+let base_point_window4_table : Array[ExtendedPoint] = extended_window4_table(
+  base_point(),
+)
+
+///|
+fn base_point_mul(s : BigInt) -> ExtendedPoint {
+  extended_mul_with_window4_table(s, base_point_window4_table)
 }
 
 ///|
@@ -350,7 +367,7 @@ fn expanded_secret(seed : Array[UInt]) -> Result[(BigInt, Array[UInt]), String] 
 pub fn derive_public_key(seed : Array[UInt]) -> Result[Array[UInt], String] {
   match expanded_secret(seed) {
     Err(message) => Err(message)
-    Ok((a, _prefix)) => Ok(encode_extended_point(extended_mul(a, base_point())))
+    Ok((a, _prefix)) => Ok(encode_extended_point(base_point_mul(a)))
   }
 }
 
@@ -367,9 +384,9 @@ pub fn sign(
   match expanded_secret(seed) {
     Err(message) => Err(message)
     Ok((a, prefix)) => {
-      let public_key = encode_extended_point(extended_mul(a, base_point()))
+      let public_key = encode_extended_point(base_point_mul(a))
       let r = modl(bytes_le_to_bigint(sha512(concat2(prefix, message))))
-      let r_encoded = encode_extended_point(extended_mul(r, base_point()))
+      let r_encoded = encode_extended_point(base_point_mul(r))
       let k = modl(
         bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
       )
@@ -425,7 +442,7 @@ pub fn verify_result(
   let k = modl(
     bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
   )
-  let left = extended_mul(s, base_point())
+  let left = base_point_mul(s)
   let right = extended_add(
     extended_from_affine(r),
     extended_mul(k, extended_from_affine(a)),
