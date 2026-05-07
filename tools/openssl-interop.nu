@@ -138,7 +138,7 @@ def main [
       print $'kept temp dir: ($temp_dir)'
     }
 
-    $report
+    $report | table -t light
   } catch {|err|
     if not $keep_temp {
       rm -rf $temp_dir

@@ -17,7 +17,7 @@ Add the module dependency in `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/ed25519": "0.1.1"
+    "hustcer/ed25519": "0.1.2"
   }
 }
 ```
