@@ -147,7 +147,7 @@ Benchmark numbers are local measurements, not performance guarantees.
 The interop check requires Nushell and OpenSSL:
 
 ```bash
-nu scripts/openssl-interop.nu
+nu tools/openssl-interop.nu
 ```
 
 The script generates an OpenSSL Ed25519 key, extracts the 32-byte seed, signs a
