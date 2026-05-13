@@ -263,7 +263,7 @@ fn validate_byte_values(
   for byte in bytes {
     match byte_checked(byte) {
       Ok(_) => ()
-      Err(message) => return Err("\{name}: \{message}")
+      Err(err) => return Err("\{name}: \{err}")
     }
   }
   Ok(())
@@ -390,7 +390,7 @@ fn encode_extended_point(point : ExtendedPoint) -> Array[UInt] {
 ///|
 fn decode_point(bytes : Array[UInt]) -> Result[Point, String] {
   match validate_bytes(bytes, 32, "encoded point") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(_) => ()
   }
   let y_bytes : Array[UInt] = []
@@ -433,7 +433,7 @@ fn decode_prime_order_point(
   name : String,
 ) -> Result[Point, String] {
   let point = match decode_point(bytes) {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(point) => point
   }
   if extended_has_small_order(extended_from_affine(point)) {
@@ -445,7 +445,7 @@ fn decode_prime_order_point(
 ///|
 fn expanded_secret(seed : Array[UInt]) -> Result[(BigInt, Array[UInt]), String] {
   match validate_bytes(seed, 32, "seed") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(_) => ()
   }
   let digest = sha512(seed)
@@ -462,7 +462,7 @@ fn sign_with_expanded_key(
   message : Array[UInt],
 ) -> Result[Array[UInt], String] {
   match validate_byte_values(message, "message") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(_) => ()
   }
   let r = modl(bytes_le_to_bigint(sha512_concat2(prefix, message)))
@@ -478,7 +478,7 @@ fn sign_with_expanded_key(
 /// Create an expanded signing key from a 32-byte Ed25519 private seed.
 pub fn SigningKey::from_seed(seed : Array[UInt]) -> Result[SigningKey, String] {
   match expanded_secret(seed) {
-    Err(message) => Err(message)
+    Err(err) => Err(err)
     Ok((a, prefix)) => {
       let public_key = encode_extended_point(base_point_mul(a))
       Ok({ a, prefix, public_key })
@@ -507,11 +507,11 @@ pub fn VerifyingKey::from_public_key(
   public_key : Array[UInt],
 ) -> Result[VerifyingKey, String] {
   match validate_bytes(public_key, 32, "public key") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(_) => ()
   }
   let point = match decode_prime_order_point(public_key, "public key") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(point) => point
   }
   Ok({
@@ -557,7 +557,7 @@ pub fn VerifyingKey::verify_result(
 /// Derive a 32-byte Ed25519 public key from a 32-byte private seed.
 pub fn derive_public_key(seed : Array[UInt]) -> Result[Array[UInt], String] {
   match expanded_secret(seed) {
-    Err(message) => Err(message)
+    Err(err) => Err(err)
     Ok((a, _prefix)) => Ok(encode_extended_point(base_point_mul(a)))
   }
 }
@@ -569,7 +569,7 @@ pub fn sign(
   message : Array[UInt],
 ) -> Result[Array[UInt], String] {
   match expanded_secret(seed) {
-    Err(message) => Err(message)
+    Err(err) => Err(err)
     Ok((a, prefix)) => {
       let public_key = encode_extended_point(base_point_mul(a))
       sign_with_expanded_key(a, prefix, public_key, message)
@@ -595,11 +595,11 @@ pub fn verify_result(
   signature : Array[UInt],
 ) -> Result[Bool, String] {
   match validate_bytes(public_key, 32, "public key") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(_) => ()
   }
   let a = match decode_prime_order_point(public_key, "public key") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(point) => point
   }
   verify_with_neg_public_key_table(
@@ -618,11 +618,11 @@ fn verify_with_neg_public_key_table(
   signature : Array[UInt],
 ) -> Result[Bool, String] {
   match validate_byte_values(message, "message") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(_) => ()
   }
   match validate_bytes(signature, 64, "signature") {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(_) => ()
   }
   let r_encoded = slice_bytes(signature, 0, 32)
@@ -632,7 +632,7 @@ fn verify_with_neg_public_key_table(
     return Err("signature S scalar is out of range")
   }
   let r = match decode_point(r_encoded) {
-    Err(message) => return Err(message)
+    Err(err) => return Err(err)
     Ok(point) => point
   }
   if extended_has_small_order(extended_from_affine(r)) {
