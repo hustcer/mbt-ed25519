@@ -76,3 +76,66 @@ test "windowed scalar multiplication handles identity and base point" {
     wb_hex("5866666666666666666666666666666666666666666666666666666666666666"),
   )
 }
+
+///|
+fn reassemble_window5(digits : Array[Int]) -> BigInt {
+  let mut acc = 0N
+  let mut factor = 1N
+  for d in digits {
+    acc = acc + BigInt::from_int(d) * factor
+    factor = factor * 32N
+  }
+  acc
+}
+
+///|
+test "scalar_window5_digits zero produces 51 zero digits" {
+  let digits = scalar_window5_digits(0N)
+  @test.assert_eq(digits.length(), 51)
+  for d in digits {
+    @test.assert_eq(d, 0)
+  }
+}
+
+///|
+test "scalar_window5_digits boundary digits" {
+  // Lowest digit is 1.
+  @test.assert_eq(scalar_window5_digits(1N)[0], 1)
+  // 31 = 0b11111 fits in one digit.
+  @test.assert_eq(scalar_window5_digits(31N)[0], 31)
+  // 32 = 0b100000 spills into the next window.
+  let d32 = scalar_window5_digits(32N)
+  @test.assert_eq(d32[0], 0)
+  @test.assert_eq(d32[1], 1)
+  // 0x3e0 = 0b11111_00000: window 0 is 0, window 1 is the full 5-bit max 31.
+  let straddle = scalar_window5_digits(BigInt::from_int(0x3e0))
+  @test.assert_eq(straddle[0], 0)
+  @test.assert_eq(straddle[1], 0x1f)
+  @test.assert_eq(straddle[2], 0)
+  // 1 << 250 places a 1 in the top window (slot 50, bits 250..254) and
+  // exercises the last iteration of the 51-window loop.
+  let top = scalar_window5_digits(BigInt::from_int(1) << 250)
+  @test.assert_eq(top.length(), 51)
+  @test.assert_eq(top[50], 1)
+  for i in 0..<50 {
+    @test.assert_eq(top[i], 0)
+  }
+}
+
+///|
+test "scalar_window5_digits roundtrip on representative scalars" {
+  let cases = [
+    0N,
+    1N,
+    BigInt::from_string("123456789012345678901234567890"),
+    BigInt::from_string(
+      "7237005577332262213973186563042994240857116359379907606001950938285454250988",
+    ),
+    BigInt::from_string(
+      "57896044618658097711785492504343953926418782139537452191302581570759080747168",
+    ),
+  ]
+  for s in cases {
+    @test.assert_eq(reassemble_window5(scalar_window5_digits(s)), s)
+  }
+}
