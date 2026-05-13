@@ -168,9 +168,34 @@ The interop check requires Nushell and OpenSSL:
 nu tools/openssl-interop.nu
 ```
 
-The script generates an OpenSSL Ed25519 key, extracts the 32-byte seed, signs a
-payload with OpenSSL and this package, compares public keys and signatures, and
-verifies signatures in both directions.
+The script runs six scenario groups against a fresh OpenSSL Ed25519 install
+and the MoonBit interop binary in `cmd/openssl-interop`:
+
+1. **Length matrix** — signs and cross-verifies messages of 1, 2, 32, 64, 111,
+   112, 119, 120, 127, 128, 129, 200, 256, and 1024 bytes against one fresh key.
+   Sizes 111/112/119/120/127/128/129 straddle the SHA-512 block + padding
+   boundary; sizes ≥ 256 cover every byte value including NUL and high-bit.
+2. **Multi-iteration** — repeats the basic round-trip with a freshly generated
+   OpenSSL key on each iteration (default 4, controlled by `--iterations N`).
+3. **Tamper rejection** — for one signed message, flips one byte in the
+   message, the signature `R`, and the signature `S`, and asserts that both
+   OpenSSL `pkeyutl -verify` and MoonBit `verify` reject each variant.
+4. **Public-key tamper rejection** — flips one byte of the verifying public
+   key at positions 0 and 31, wraps the result into a fresh SPKI DER, and
+   asserts both sides reject the legitimate signature under the tampered
+   pubkey (whether decode fails or the curve math fails downstream).
+5. **Reverse pubkey load** — wraps the MoonBit-derived 32-byte public key into
+   an Ed25519 SubjectPublicKeyInfo DER, loads it with OpenSSL, and verifies
+   the MoonBit signature using that reconstructed PEM. Proves MoonBit pubkey
+   bytes are independently OpenSSL-loadable.
+6. **External-seed injection** — builds an OpenSSL DER private key from an
+   RFC 8032 vector-1 seed, derives the public key via OpenSSL, asserts it
+   matches the RFC vector, and asserts MoonBit produces the RFC vector-1
+   signature for the empty message. Anchors the seed → key → signature
+   pipeline at known coordinates. (The empty-message signing happens through
+   MoonBit because `openssl pkeyutl -sign -rawin` refuses 0-byte input.)
+
+Pass `--keep-temp` to retain the working directory for inspection.
 
 ## License
 
