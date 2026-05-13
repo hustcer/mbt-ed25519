@@ -304,11 +304,6 @@ fn concat2(a : Array[UInt], b : Array[UInt]) -> Array[UInt] {
 }
 
 ///|
-fn concat3(a : Array[UInt], b : Array[UInt], c : Array[UInt]) -> Array[UInt] {
-  concat2(concat2(a, b), c)
-}
-
-///|
 fn clone_bytes(bytes : Array[UInt]) -> Array[UInt] {
   let out : Array[UInt] = []
   for byte in bytes {
@@ -348,8 +343,7 @@ fn bigint_to_le_bytes(value : BigInt, length : Int) -> Array[UInt] {
 }
 
 ///|
-fn sha512(input : Array[UInt]) -> Array[UInt] {
-  let words = @sha2.Sha512::digest(input)
+fn sha512_words_to_bytes(words : FixedArray[UInt64]) -> Array[UInt] {
   let out : Array[UInt] = []
   for word in words {
     out.push(((word >> 56) & 0xffUL).to_uint())
@@ -362,6 +356,32 @@ fn sha512(input : Array[UInt]) -> Array[UInt] {
     out.push((word & 0xffUL).to_uint())
   }
   out
+}
+
+///|
+fn sha512(input : Array[UInt]) -> Array[UInt] {
+  sha512_words_to_bytes(@sha2.Sha512::digest(input))
+}
+
+///|
+fn sha512_concat2(a : Array[UInt], b : Array[UInt]) -> Array[UInt] {
+  let sha = @sha2.Sha512::new()
+  sha.update(a)
+  sha.update(b)
+  sha512_words_to_bytes(sha.finalize())
+}
+
+///|
+fn sha512_concat3(
+  a : Array[UInt],
+  b : Array[UInt],
+  c : Array[UInt],
+) -> Array[UInt] {
+  let sha = @sha2.Sha512::new()
+  sha.update(a)
+  sha.update(b)
+  sha.update(c)
+  sha512_words_to_bytes(sha.finalize())
 }
 
 ///|
@@ -464,10 +484,10 @@ fn sign_with_expanded_key(
     Err(message) => return Err(message)
     Ok(_) => ()
   }
-  let r = modl(bytes_le_to_bigint(sha512(concat2(prefix, message))))
+  let r = modl(bytes_le_to_bigint(sha512_concat2(prefix, message)))
   let r_encoded = encode_extended_point(base_point_mul(r))
   let k = modl(
-    bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
+    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
   )
   let s = modl(r + k * a)
   Ok(concat2(r_encoded, bigint_to_le_bytes(s, 32)))
@@ -638,7 +658,7 @@ fn verify_with_neg_public_key_table(
     return Err("signature R has small order")
   }
   let k = modl(
-    bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
+    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
   )
   let combined = extended_mul_two_with_window5_tables(
     s, base_point_window5_table, k, neg_public_key_window5_table,
