@@ -247,6 +247,11 @@ fn bytes_le_to_bigint(bytes : BytesView) -> BigInt {
 ///|
 fn bigint_to_le_bytes(value : BigInt, length : Int) -> Bytes {
   let be = value.to_octets(length~)
+  // BigInt::to_octets returns >= length bytes; reject the overflow case so the
+  // caller does not silently get the high-order bytes when value >= 2^(8*length).
+  if be.length() != length {
+    abort("bigint_to_le_bytes: value exceeds \{length} bytes")
+  }
   Bytes::makei(length, fn(i) { be[length - 1 - i] })
 }
 
