@@ -500,7 +500,7 @@ pub fn SigningKey::from_seed(seed : Array[UInt]) -> Result[SigningKey, String] {
     Err(message) => Err(message)
     Ok((a, prefix)) => {
       let public_key = encode_extended_point(base_point_mul(a))
-      Ok(SigningKey::{ a, prefix, public_key })
+      Ok({ a, prefix, public_key })
     }
   }
 }
@@ -533,7 +533,7 @@ pub fn VerifyingKey::from_public_key(
     Err(message) => return Err(message)
     Ok(point) => point
   }
-  Ok(VerifyingKey::{
+  Ok({
     public_key: clone_bytes(public_key),
     neg_public_key_window5_table: extended_window5_table(
       extended_neg(extended_from_affine(point)),
