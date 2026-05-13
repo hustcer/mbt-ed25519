@@ -46,14 +46,14 @@ priv struct ExtendedPoint {
 /// Expanded Ed25519 signing key for repeated signing with the same seed.
 pub struct SigningKey {
   priv a : BigInt
-  priv prefix : Array[UInt]
-  priv public_key : Array[UInt]
+  priv prefix : Bytes
+  priv public_key : Bytes
 }
 
 ///|
 /// Expanded Ed25519 verifying key for repeated verification.
 pub struct VerifyingKey {
-  priv public_key : Array[UInt]
+  priv public_key : Bytes
   priv neg_public_key_window5_table : Array[ExtendedPoint]
 }
 
@@ -235,171 +235,108 @@ fn base_point_mul(s : BigInt) -> ExtendedPoint {
 }
 
 ///|
-fn byte_checked(value : UInt) -> Result[UInt, String] {
-  if value <= 255U {
-    Ok(value)
-  } else {
-    Err("byte value must be in 0..255")
-  }
-}
-
-///|
-fn validate_bytes(
-  bytes : Array[UInt],
-  expected_len : Int,
-  name : String,
-) -> Result[Unit, String] {
-  if bytes.length() != expected_len {
-    return Err("\{name} must be \{expected_len} bytes")
-  }
-  validate_byte_values(bytes, name)
-}
-
-///|
-fn validate_byte_values(
-  bytes : Array[UInt],
-  name : String,
-) -> Result[Unit, String] {
-  for byte in bytes {
-    match byte_checked(byte) {
-      Ok(_) => ()
-      Err(err) => return Err("\{name}: \{err}")
-    }
-  }
-  Ok(())
-}
-
-///|
-fn concat2(a : Array[UInt], b : Array[UInt]) -> Array[UInt] {
-  let out : Array[UInt] = []
-  for byte in a {
-    out.push(byte)
-  }
-  for byte in b {
-    out.push(byte)
-  }
-  out
-}
-
-///|
-fn clone_bytes(bytes : Array[UInt]) -> Array[UInt] {
-  let out : Array[UInt] = []
-  for byte in bytes {
-    out.push(byte)
-  }
-  out
-}
-
-///|
-fn slice_bytes(bytes : Array[UInt], start : Int, end : Int) -> Array[UInt] {
-  let out : Array[UInt] = []
-  for i = start; i < end; i = i + 1 {
-    out.push(bytes[i])
-  }
-  out
-}
-
-///|
-fn bytes_le_to_bigint(bytes : Array[UInt]) -> BigInt {
+fn bytes_le_to_bigint(bytes : BytesView) -> BigInt {
   let mut out = 0N
   let mut factor = 1N
   for byte in bytes {
-    out = out + BigInt::from_uint(byte) * factor
+    out = out + BigInt::from_int(byte.to_int()) * factor
     factor = factor * 256N
   }
   out
 }
 
 ///|
-fn bigint_to_le_bytes(value : BigInt, length : Int) -> Array[UInt] {
+fn bigint_to_le_bytes(value : BigInt, length : Int) -> Bytes {
   let be = value.to_octets(length~)
-  let out : Array[UInt] = []
-  for i = 0; i < length; i = i + 1 {
-    out.push(be[length - 1 - i].to_uint())
-  }
-  out
+  Bytes::makei(length, fn(i) { be[length - 1 - i] })
 }
 
 ///|
-fn sha512_words_to_bytes(words : FixedArray[UInt64]) -> Array[UInt] {
-  let out : Array[UInt] = []
-  for word in words {
-    out.push(((word >> 56) & 0xffUL).to_uint())
-    out.push(((word >> 48) & 0xffUL).to_uint())
-    out.push(((word >> 40) & 0xffUL).to_uint())
-    out.push(((word >> 32) & 0xffUL).to_uint())
-    out.push(((word >> 24) & 0xffUL).to_uint())
-    out.push(((word >> 16) & 0xffUL).to_uint())
-    out.push(((word >> 8) & 0xffUL).to_uint())
-    out.push((word & 0xffUL).to_uint())
-  }
-  out
+fn sha512_words_to_bytes(words : FixedArray[UInt64]) -> Bytes {
+  Bytes::makei(64, fn(i) {
+    let word_idx = i / 8
+    let byte_in_word = 7 - i % 8
+    ((words[word_idx] >> (byte_in_word * 8)) & 0xffUL).to_byte()
+  })
 }
 
 ///|
-fn sha512(input : Array[UInt]) -> Array[UInt] {
-  sha512_words_to_bytes(@sha2.Sha512::digest(input))
-}
-
-///|
-fn sha512_concat2(a : Array[UInt], b : Array[UInt]) -> Array[UInt] {
-  let sha = @sha2.Sha512::new()
-  sha.update(a)
-  sha.update(b)
-  sha512_words_to_bytes(sha.finalize())
-}
-
-///|
-fn sha512_concat3(
-  a : Array[UInt],
-  b : Array[UInt],
-  c : Array[UInt],
-) -> Array[UInt] {
-  let sha = @sha2.Sha512::new()
-  sha.update(a)
-  sha.update(b)
-  sha.update(c)
-  sha512_words_to_bytes(sha.finalize())
-}
-
-///|
-fn clamp_scalar(bytes : Array[UInt]) -> Array[UInt] {
-  let out : Array[UInt] = []
+fn bytes_view_to_uint_array(bytes : BytesView) -> Array[UInt] {
+  let arr : Array[UInt] = Array::new(capacity=bytes.length())
   for byte in bytes {
-    out.push(byte)
+    arr.push(byte.to_uint())
   }
-  out[0] = out[0] & 248U
-  out[31] = (out[31] & 63U) | 64U
-  out
+  arr
 }
 
 ///|
-fn encode_point(point : Point) -> Array[UInt] {
-  let out = bigint_to_le_bytes(modp(point.y), 32)
+fn sha512(input : BytesView) -> Bytes {
+  sha512_words_to_bytes(@sha2.Sha512::digest(bytes_view_to_uint_array(input)))
+}
+
+///|
+fn sha512_concat2(a : BytesView, b : BytesView) -> Bytes {
+  let sha = @sha2.Sha512::new()
+  sha.update(bytes_view_to_uint_array(a))
+  sha.update(bytes_view_to_uint_array(b))
+  sha512_words_to_bytes(sha.finalize())
+}
+
+///|
+fn sha512_concat3(a : BytesView, b : BytesView, c : BytesView) -> Bytes {
+  let sha = @sha2.Sha512::new()
+  sha.update(bytes_view_to_uint_array(a))
+  sha.update(bytes_view_to_uint_array(b))
+  sha.update(bytes_view_to_uint_array(c))
+  sha512_words_to_bytes(sha.finalize())
+}
+
+///|
+fn clamp_scalar(bytes : BytesView) -> Bytes {
+  Bytes::makei(32, fn(i) {
+    match i {
+      0 => bytes[0] & b'\xf8'
+      31 => (bytes[31] & b'\x3f') | b'\x40'
+      _ => bytes[i]
+    }
+  })
+}
+
+///|
+fn encode_point(point : Point) -> Bytes {
+  let y_bytes = bigint_to_le_bytes(modp(point.y), 32)
   if modp(point.x) % 2N == 1N {
-    out[31] = out[31] | 128U
+    Bytes::makei(32, fn(i) {
+      if i == 31 {
+        y_bytes[31] | b'\x80'
+      } else {
+        y_bytes[i]
+      }
+    })
+  } else {
+    y_bytes
   }
-  out
 }
 
 ///|
-fn encode_extended_point(point : ExtendedPoint) -> Array[UInt] {
+fn encode_extended_point(point : ExtendedPoint) -> Bytes {
   encode_point(extended_to_affine(point))
 }
 
 ///|
-fn decode_point(bytes : Array[UInt]) -> Result[Point, String] {
-  match validate_bytes(bytes, 32, "encoded point") {
-    Err(err) => return Err(err)
-    Ok(_) => ()
+fn decode_point(bytes : BytesView) -> Result[Point, String] {
+  if bytes.length() != 32 {
+    return Err("encoded point must be 32 bytes")
   }
-  let y_bytes : Array[UInt] = []
-  for byte in bytes {
-    y_bytes.push(byte)
-  }
-  let sign = (y_bytes[31] >> 7) & 1U
-  y_bytes[31] = y_bytes[31] & 127U
-  let y = bytes_le_to_bigint(y_bytes)
+  let sign : Byte = (bytes[31] >> 7) & b'\x01'
+  let y_bytes = Bytes::makei(32, fn(i) {
+    if i == 31 {
+      bytes[31] & b'\x7f'
+    } else {
+      bytes[i]
+    }
+  })
+  let y = bytes_le_to_bigint(y_bytes[:])
   if y >= p {
     return Err("encoded point y coordinate is out of range")
   }
@@ -417,11 +354,11 @@ fn decode_point(bytes : Array[UInt]) -> Result[Point, String] {
   if !field_eq(modp(y2 - x2), modp(1N + d * x2 * y2)) {
     return Err("encoded point is not on Ed25519")
   }
-  if (x % 2N == 1N) != (sign == 1U) {
+  if (x % 2N == 1N) != (sign == b'\x01') {
     x = modp(p - x)
   }
   let point = { x, y }
-  if encode_point(point) != bytes {
+  if encode_point(point)[:] != bytes {
     return Err("encoded point is not canonical")
   }
   Ok(point)
@@ -429,7 +366,7 @@ fn decode_point(bytes : Array[UInt]) -> Result[Point, String] {
 
 ///|
 fn decode_prime_order_point(
-  bytes : Array[UInt],
+  bytes : BytesView,
   name : String,
 ) -> Result[Point, String] {
   let point = match decode_point(bytes) {
@@ -443,40 +380,35 @@ fn decode_prime_order_point(
 }
 
 ///|
-fn expanded_secret(seed : Array[UInt]) -> Result[(BigInt, Array[UInt]), String] {
-  match validate_bytes(seed, 32, "seed") {
-    Err(err) => return Err(err)
-    Ok(_) => ()
+fn expanded_secret(seed : BytesView) -> Result[(BigInt, Bytes), String] {
+  if seed.length() != 32 {
+    return Err("seed must be 32 bytes")
   }
   let digest = sha512(seed)
-  let a_bytes = clamp_scalar(slice_bytes(digest, 0, 32))
-  let prefix = slice_bytes(digest, 32, 64)
-  Ok((bytes_le_to_bigint(a_bytes), prefix))
+  let a_bytes = clamp_scalar(digest[0:32])
+  let prefix = digest[32:64].to_owned()
+  Ok((bytes_le_to_bigint(a_bytes[:]), prefix))
 }
 
 ///|
 fn sign_with_expanded_key(
   a : BigInt,
-  prefix : Array[UInt],
-  public_key : Array[UInt],
-  message : Array[UInt],
-) -> Result[Array[UInt], String] {
-  match validate_byte_values(message, "message") {
-    Err(err) => return Err(err)
-    Ok(_) => ()
-  }
-  let r = modl(bytes_le_to_bigint(sha512_concat2(prefix, message)))
+  prefix : BytesView,
+  public_key : BytesView,
+  message : BytesView,
+) -> Bytes {
+  let r = modl(bytes_le_to_bigint(sha512_concat2(prefix, message)[:]))
   let r_encoded = encode_extended_point(base_point_mul(r))
   let k = modl(
-    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
+    bytes_le_to_bigint(sha512_concat3(r_encoded[:], public_key, message)[:]),
   )
   let s = modl(r + k * a)
-  Ok(concat2(r_encoded, bigint_to_le_bytes(s, 32)))
+  r_encoded + bigint_to_le_bytes(s, 32)
 }
 
 ///|
 /// Create an expanded signing key from a 32-byte Ed25519 private seed.
-pub fn SigningKey::from_seed(seed : Array[UInt]) -> Result[SigningKey, String] {
+pub fn SigningKey::from_seed(seed : BytesView) -> Result[SigningKey, String] {
   match expanded_secret(seed) {
     Err(err) => Err(err)
     Ok((a, prefix)) => {
@@ -487,35 +419,31 @@ pub fn SigningKey::from_seed(seed : Array[UInt]) -> Result[SigningKey, String] {
 }
 
 ///|
-/// Return a copy of the 32-byte public key for this signing key.
-pub fn SigningKey::public_key(self : SigningKey) -> Array[UInt] {
-  clone_bytes(self.public_key)
+/// Return the 32-byte public key for this signing key.
+pub fn SigningKey::public_key(self : SigningKey) -> Bytes {
+  self.public_key
 }
 
 ///|
 /// Sign a message with a pre-expanded Ed25519 signing key.
-pub fn SigningKey::sign(
-  self : SigningKey,
-  message : Array[UInt],
-) -> Result[Array[UInt], String] {
-  sign_with_expanded_key(self.a, self.prefix, self.public_key, message)
+pub fn SigningKey::sign(self : SigningKey, message : BytesView) -> Bytes {
+  sign_with_expanded_key(self.a, self.prefix[:], self.public_key[:], message)
 }
 
 ///|
 /// Create an expanded verifying key from a 32-byte Ed25519 public key.
 pub fn VerifyingKey::from_public_key(
-  public_key : Array[UInt],
+  public_key : BytesView,
 ) -> Result[VerifyingKey, String] {
-  match validate_bytes(public_key, 32, "public key") {
-    Err(err) => return Err(err)
-    Ok(_) => ()
+  if public_key.length() != 32 {
+    return Err("public key must be 32 bytes")
   }
   let point = match decode_prime_order_point(public_key, "public key") {
     Err(err) => return Err(err)
     Ok(point) => point
   }
   Ok({
-    public_key: clone_bytes(public_key),
+    public_key: public_key.to_owned(),
     neg_public_key_window5_table: extended_window5_table(
       extended_neg(extended_from_affine(point)),
     ),
@@ -523,17 +451,17 @@ pub fn VerifyingKey::from_public_key(
 }
 
 ///|
-/// Return a copy of the 32-byte public key for this verifying key.
-pub fn VerifyingKey::public_key(self : VerifyingKey) -> Array[UInt] {
-  clone_bytes(self.public_key)
+/// Return the 32-byte public key for this verifying key.
+pub fn VerifyingKey::public_key(self : VerifyingKey) -> Bytes {
+  self.public_key
 }
 
 ///|
 /// Verify a signature with a pre-expanded verifying key.
 pub fn VerifyingKey::verify(
   self : VerifyingKey,
-  message : Array[UInt],
-  signature : Array[UInt],
+  message : BytesView,
+  signature : BytesView,
 ) -> Bool {
   self.verify_result(message, signature).unwrap_or(false)
 }
@@ -542,11 +470,11 @@ pub fn VerifyingKey::verify(
 /// Verify a signature with a pre-expanded verifying key and report malformed inputs.
 pub fn VerifyingKey::verify_result(
   self : VerifyingKey,
-  message : Array[UInt],
-  signature : Array[UInt],
+  message : BytesView,
+  signature : BytesView,
 ) -> Result[Bool, String] {
   verify_with_neg_public_key_table(
-    self.public_key,
+    self.public_key[:],
     self.neg_public_key_window5_table,
     message,
     signature,
@@ -555,7 +483,7 @@ pub fn VerifyingKey::verify_result(
 
 ///|
 /// Derive a 32-byte Ed25519 public key from a 32-byte private seed.
-pub fn derive_public_key(seed : Array[UInt]) -> Result[Array[UInt], String] {
+pub fn derive_public_key(seed : BytesView) -> Result[Bytes, String] {
   match expanded_secret(seed) {
     Err(err) => Err(err)
     Ok((a, _prefix)) => Ok(encode_extended_point(base_point_mul(a)))
@@ -564,15 +492,12 @@ pub fn derive_public_key(seed : Array[UInt]) -> Result[Array[UInt], String] {
 
 ///|
 /// Sign a message with a 32-byte Ed25519 private seed.
-pub fn sign(
-  seed : Array[UInt],
-  message : Array[UInt],
-) -> Result[Array[UInt], String] {
+pub fn sign(seed : BytesView, message : BytesView) -> Result[Bytes, String] {
   match expanded_secret(seed) {
     Err(err) => Err(err)
     Ok((a, prefix)) => {
       let public_key = encode_extended_point(base_point_mul(a))
-      sign_with_expanded_key(a, prefix, public_key, message)
+      Ok(sign_with_expanded_key(a, prefix[:], public_key[:], message))
     }
   }
 }
@@ -580,9 +505,9 @@ pub fn sign(
 ///|
 /// Verify a 64-byte Ed25519 signature for a message and 32-byte public key.
 pub fn verify(
-  public_key : Array[UInt],
-  message : Array[UInt],
-  signature : Array[UInt],
+  public_key : BytesView,
+  message : BytesView,
+  signature : BytesView,
 ) -> Bool {
   verify_result(public_key, message, signature).unwrap_or(false)
 }
@@ -590,13 +515,12 @@ pub fn verify(
 ///|
 /// Verify a signature and return an error for malformed public inputs.
 pub fn verify_result(
-  public_key : Array[UInt],
-  message : Array[UInt],
-  signature : Array[UInt],
+  public_key : BytesView,
+  message : BytesView,
+  signature : BytesView,
 ) -> Result[Bool, String] {
-  match validate_bytes(public_key, 32, "public key") {
-    Err(err) => return Err(err)
-    Ok(_) => ()
+  if public_key.length() != 32 {
+    return Err("public key must be 32 bytes")
   }
   let a = match decode_prime_order_point(public_key, "public key") {
     Err(err) => return Err(err)
@@ -612,21 +536,16 @@ pub fn verify_result(
 
 ///|
 fn verify_with_neg_public_key_table(
-  public_key : Array[UInt],
+  public_key : BytesView,
   neg_public_key_window5_table : Array[ExtendedPoint],
-  message : Array[UInt],
-  signature : Array[UInt],
+  message : BytesView,
+  signature : BytesView,
 ) -> Result[Bool, String] {
-  match validate_byte_values(message, "message") {
-    Err(err) => return Err(err)
-    Ok(_) => ()
+  if signature.length() != 64 {
+    return Err("signature must be 64 bytes")
   }
-  match validate_bytes(signature, 64, "signature") {
-    Err(err) => return Err(err)
-    Ok(_) => ()
-  }
-  let r_encoded = slice_bytes(signature, 0, 32)
-  let s_bytes = slice_bytes(signature, 32, 64)
+  let r_encoded = signature[0:32]
+  let s_bytes = signature[32:64]
   let s = bytes_le_to_bigint(s_bytes)
   if s >= l {
     return Err("signature S scalar is out of range")
@@ -639,7 +558,7 @@ fn verify_with_neg_public_key_table(
     return Err("signature R has small order")
   }
   let k = modl(
-    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
+    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)[:]),
   )
   let combined = extended_mul_two_with_window5_tables(
     s, base_point_window5_table, k, neg_public_key_window5_table,

@@ -17,7 +17,7 @@ Add the module dependency in `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/ed25519": "0.1.2"
+    "hustcer/ed25519": "0.2.0"
   }
 }
 ```
@@ -37,24 +37,24 @@ This repository itself depends on `Tigls/mb-hash` for SHA-512.
 The public API is generated in `pkg.generated.mbti` and currently consists of:
 
 ```moonbit nocheck
-pub fn derive_public_key(Array[UInt]) -> Result[Array[UInt], String]
-pub fn sign(Array[UInt], Array[UInt]) -> Result[Array[UInt], String]
-pub fn verify(Array[UInt], Array[UInt], Array[UInt]) -> Bool
-pub fn verify_result(Array[UInt], Array[UInt], Array[UInt]) -> Result[Bool, String]
+pub fn derive_public_key(BytesView) -> Result[Bytes, String]
+pub fn sign(BytesView, BytesView) -> Result[Bytes, String]
+pub fn verify(BytesView, BytesView, BytesView) -> Bool
+pub fn verify_result(BytesView, BytesView, BytesView) -> Result[Bool, String]
 
 pub struct SigningKey
-pub fn SigningKey::from_seed(Array[UInt]) -> Result[SigningKey, String]
-pub fn SigningKey::public_key(SigningKey) -> Array[UInt]
-pub fn SigningKey::sign(SigningKey, Array[UInt]) -> Result[Array[UInt], String]
+pub fn SigningKey::from_seed(BytesView) -> Result[SigningKey, String]
+pub fn SigningKey::public_key(SigningKey) -> Bytes
+pub fn SigningKey::sign(SigningKey, BytesView) -> Bytes
 
 pub struct VerifyingKey
-pub fn VerifyingKey::from_public_key(Array[UInt]) -> Result[VerifyingKey, String]
-pub fn VerifyingKey::public_key(VerifyingKey) -> Array[UInt]
-pub fn VerifyingKey::verify(VerifyingKey, Array[UInt], Array[UInt]) -> Bool
+pub fn VerifyingKey::from_public_key(BytesView) -> Result[VerifyingKey, String]
+pub fn VerifyingKey::public_key(VerifyingKey) -> Bytes
+pub fn VerifyingKey::verify(VerifyingKey, BytesView, BytesView) -> Bool
 pub fn VerifyingKey::verify_result(
   VerifyingKey,
-  Array[UInt],
-  Array[UInt]
+  BytesView,
+  BytesView,
 ) -> Result[Bool, String]
 ```
 
@@ -63,13 +63,11 @@ pub fn VerifyingKey::verify_result(
 - Private keys are 32-byte Ed25519 seeds.
 - Public keys are 32 bytes.
 - Signatures are 64 bytes.
-- Messages are `Array[UInt]`.
-- Every byte value in seeds, public keys, messages, and signatures must be in
-  `0..255`.
+- Messages are `BytesView` (`Bytes` is implicitly convertible to `BytesView`).
 
-The implementation validates byte lengths, byte ranges, canonical point
-encodings, public-key subgroup membership, signature `R` subgroup membership,
-and signature `S < L`. The `Result` returning functions report malformed inputs
+The implementation validates byte lengths, canonical point encodings,
+public-key subgroup membership, signature `R` subgroup membership, and
+signature `S < L`. The `Result` returning functions report malformed inputs
 as `Err(String)`.
 
 `verify` and `VerifyingKey::verify` return `false` on malformed input or an
@@ -82,14 +80,10 @@ One-off signing and verification:
 
 ```moonbit nocheck
 ///|
-let seed : Array[UInt] = [
-  0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec,
-  0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03,
-  0x1c, 0xae, 0x7f, 0x60,
-]
+let seed : Bytes = b"\x9d\x61\xb1\x9d\xef\xfd\x5a\x60\xba\x84\x4a\xf4\x92\xec\x2c\xc4\x44\x49\xc5\x69\x7b\x32\x69\x19\x70\x3b\xac\x03\x1c\xae\x7f\x60"
 
 ///|
-let message : Array[UInt] = [0x6c, 0x69, 0x63, 0x65, 0x6e, 0x73, 0x65]
+let message : Bytes = b"license"
 
 ///|
 let public_key = @ed25519.derive_public_key(seed).unwrap()
@@ -112,7 +106,7 @@ let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
 let public_key = signing_key.public_key()
 
 ///|
-let signature = signing_key.sign(message).unwrap()
+let signature = signing_key.sign(message)
 ```
 
 For repeated verification with the same public key, create a `VerifyingKey`

@@ -12,22 +12,31 @@ fn hex_value(c : UInt16) -> UInt {
 }
 
 ///|
-fn hex(input : String) -> Array[UInt] {
+fn hex(input : String) -> Bytes {
   if input.length() % 2 != 0 {
     abort("hex input must have even length")
   }
-  let out : Array[UInt] = []
-  for i = 0; i < input.length(); i = i + 2 {
-    let hi = hex_value(input[i])
-    let lo = hex_value(input[i + 1])
-    out.push((hi << 4) | lo)
-  }
-  out
+  Bytes::makei(input.length() / 2, fn(i) {
+    let hi = hex_value(input[2 * i])
+    let lo = hex_value(input[2 * i + 1])
+    ((hi << 4) | lo).to_byte()
+  })
+}
+
+///|
+fn with_byte_replaced(bytes : Bytes, index : Int, value : Byte) -> Bytes {
+  Bytes::makei(bytes.length(), fn(i) {
+    if i == index {
+      value
+    } else {
+      bytes[i]
+    }
+  })
 }
 
 ///|
 fn assert_verifying_key_error(
-  public_key : Array[UInt],
+  public_key : Bytes,
   expected : String,
 ) -> Unit raise {
   match @ed25519.VerifyingKey::from_public_key(public_key) {
@@ -48,12 +57,13 @@ test "rfc8032 vector 1: empty message" {
     "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155" +
     "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
   )
+  let empty : Bytes = b""
   @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  @test.assert_eq(@ed25519.sign(seed, []), Ok(signature))
+  @test.assert_eq(@ed25519.sign(seed, empty), Ok(signature))
   let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
   @test.assert_eq(signing_key.public_key(), public_key)
-  @test.assert_eq(signing_key.sign([]), Ok(signature))
-  assert_true(@ed25519.verify(public_key, [], signature))
+  @test.assert_eq(signing_key.sign(empty), signature)
+  assert_true(@ed25519.verify(public_key, empty, signature))
 }
 
 ///|
@@ -102,8 +112,12 @@ test "verification rejects tampered message and signature" {
   let signature = @ed25519.sign(seed, message).unwrap()
   let tampered_message = hex("73656c662d6c6963656e7364")
   assert_false(@ed25519.verify(public_key, tampered_message, signature))
-  signature[0] = signature[0] ^ 1U
-  assert_false(@ed25519.verify(public_key, message, signature))
+  let tampered_signature = with_byte_replaced(
+    signature,
+    0,
+    signature[0] ^ b'\x01',
+  )
+  assert_false(@ed25519.verify(public_key, message, tampered_signature))
 }
 
 ///|
@@ -117,12 +131,16 @@ test "verification rejects non-canonical s scalar" {
   let non_canonical_s = hex(
     "edd3f55c1a631258d69cf7a2def9de1400000000000000000000000000000010",
   )
-  for i = 0; i < 32; i = i + 1 {
-    signature[32 + i] = non_canonical_s[i]
-  }
-  assert_false(@ed25519.verify(public_key, message, signature))
+  let tampered = Bytes::makei(64, fn(i) {
+    if i < 32 {
+      signature[i]
+    } else {
+      non_canonical_s[i - 32]
+    }
+  })
+  assert_false(@ed25519.verify(public_key, message, tampered))
   @test.assert_eq(
-    @ed25519.verify_result(public_key, message, signature),
+    @ed25519.verify_result(public_key, message, tampered),
     Err("signature S scalar is out of range"),
   )
 }
@@ -154,11 +172,14 @@ test "verification rejects non-canonical identity encoding" {
     "5866666666666666666666666666666666666666666666666666666666666666" +
     "0100000000000000000000000000000000000000000000000000000000000000",
   )
+  let single_byte_msg : Bytes = b"\x61"
   assert_false(
-    @ed25519.verify(non_canonical_identity, [0x61U], forged_signature),
+    @ed25519.verify(non_canonical_identity, single_byte_msg, forged_signature),
   )
   @test.assert_eq(
-    @ed25519.verify_result(non_canonical_identity, [0x61U], forged_signature),
+    @ed25519.verify_result(
+      non_canonical_identity, single_byte_msg, forged_signature,
+    ),
     Err("encoded point is not canonical"),
   )
   assert_verifying_key_error(
@@ -176,9 +197,10 @@ test "verification rejects small-order signature r" {
     "0100000000000000000000000000000000000000000000000000000000000000" +
     "0000000000000000000000000000000000000000000000000000000000000000",
   )
-  assert_false(@ed25519.verify(public_key, [], signature_with_identity_r))
+  let empty : Bytes = b""
+  assert_false(@ed25519.verify(public_key, empty, signature_with_identity_r))
   @test.assert_eq(
-    @ed25519.verify_result(public_key, [], signature_with_identity_r),
+    @ed25519.verify_result(public_key, empty, signature_with_identity_r),
     Err("signature R has small order"),
   )
 }
@@ -204,25 +226,22 @@ test "openssl interop: verifies external Ed25519 signature" {
 
 ///|
 test "malformed inputs return errors" {
-  @test.assert_eq(@ed25519.derive_public_key([]), Err("seed must be 32 bytes"))
-  match @ed25519.SigningKey::from_seed([]) {
+  let empty : Bytes = b""
+  @test.assert_eq(
+    @ed25519.derive_public_key(empty),
+    Err("seed must be 32 bytes"),
+  )
+  match @ed25519.SigningKey::from_seed(empty) {
     Err(message) => @test.assert_eq(message, "seed must be 32 bytes")
     Ok(_) => abort("expected invalid seed to fail")
   }
-  match @ed25519.VerifyingKey::from_public_key([]) {
+  match @ed25519.VerifyingKey::from_public_key(empty) {
     Err(message) => @test.assert_eq(message, "public key must be 32 bytes")
     Ok(_) => abort("expected invalid public key to fail")
   }
-  @test.assert_eq(@ed25519.sign([], []), Err("seed must be 32 bytes"))
+  @test.assert_eq(@ed25519.sign(empty, empty), Err("seed must be 32 bytes"))
   @test.assert_eq(
-    @ed25519.sign(
-      hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"),
-      [256U],
-    ),
-    Err("message: byte value must be in 0..255"),
-  )
-  @test.assert_eq(
-    @ed25519.verify_result([], [], []),
+    @ed25519.verify_result(empty, empty, empty),
     Err("public key must be 32 bytes"),
   )
 }
@@ -233,12 +252,13 @@ test "malformed point encodings return errors" {
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
   let public_key = @ed25519.derive_public_key(seed).unwrap()
-  let valid_signature = @ed25519.sign(seed, []).unwrap()
+  let empty : Bytes = b""
+  let valid_signature = @ed25519.sign(seed, empty).unwrap()
   let y_equal_to_p = hex(
     "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
   )
   @test.assert_eq(
-    @ed25519.verify_result(y_equal_to_p, [], valid_signature),
+    @ed25519.verify_result(y_equal_to_p, empty, valid_signature),
     Err("encoded point y coordinate is out of range"),
   )
   assert_verifying_key_error(
@@ -249,25 +269,20 @@ test "malformed point encodings return errors" {
     "0000000000000000000000000000000000000000000000000000000000000000",
   )
   @test.assert_eq(
-    @ed25519.verify_result(public_key, [], signature_with_invalid_r),
+    @ed25519.verify_result(public_key, empty, signature_with_invalid_r),
     Err("encoded point y coordinate is out of range"),
   )
 }
 
 ///|
-test "malformed signature byte values return errors" {
+test "short signature is rejected" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
   let public_key = @ed25519.derive_public_key(seed).unwrap()
-  let signature = @ed25519.sign(seed, []).unwrap()
-  signature[0] = 256U
+  let short : Bytes = b""
   @test.assert_eq(
-    @ed25519.verify_result(public_key, [], signature),
-    Err("signature: byte value must be in 0..255"),
-  )
-  @test.assert_eq(
-    @ed25519.verify_result(public_key, [256U], @ed25519.sign(seed, []).unwrap()),
-    Err("message: byte value must be in 0..255"),
+    @ed25519.verify_result(public_key, short, short),
+    Err("signature must be 64 bytes"),
   )
 }

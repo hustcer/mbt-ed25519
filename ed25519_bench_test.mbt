@@ -12,24 +12,24 @@ fn bench_hex_value(c : UInt16) -> UInt {
 }
 
 ///|
-fn bench_hex(input : String) -> Array[UInt] {
+fn bench_hex(input : String) -> Bytes {
   if input.length() % 2 != 0 {
     abort("hex input must have even length")
   }
-  let out : Array[UInt] = []
-  for i = 0; i < input.length(); i = i + 2 {
-    out.push((bench_hex_value(input[i]) << 4) | bench_hex_value(input[i + 1]))
-  }
-  out
+  Bytes::makei(input.length() / 2, fn(i) {
+    let hi = bench_hex_value(input[2 * i])
+    let lo = bench_hex_value(input[2 * i + 1])
+    ((hi << 4) | lo).to_byte()
+  })
 }
 
 ///|
-fn bench_seed() -> Array[UInt] {
+fn bench_seed() -> Bytes {
   bench_hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
 }
 
 ///|
-fn bench_license_payload() -> Array[UInt] {
+fn bench_license_payload() -> Bytes {
   bench_hex(
     "7b22637573746f6d65724964223a2273656c66222c22657870697265734174223a" +
     "22323032372d30352d3035222c2270726f64756374223a22733866792d766965" +
@@ -54,7 +54,7 @@ test "bench: sign license-sized payload" (b : @bench.T) {
 test "bench: sign license-sized payload with cached SigningKey" (b : @bench.T) {
   let signing_key = @ed25519.SigningKey::from_seed(bench_seed()).unwrap()
   let message = bench_license_payload()
-  b.bench(fn() { b.keep(signing_key.sign(message).unwrap()) })
+  b.bench(fn() { b.keep(signing_key.sign(message)) })
 }
 
 ///|

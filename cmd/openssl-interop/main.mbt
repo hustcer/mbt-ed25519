@@ -12,46 +12,47 @@ fn hex_value(c : UInt16) -> UInt {
 }
 
 ///|
-fn hex_to_bytes(input : String) -> Array[UInt] {
+fn hex_to_bytes(input : String) -> Bytes {
   if input.length() % 2 != 0 {
     abort("hex input must have even length")
   }
-  let out : Array[UInt] = []
-  for i = 0; i < input.length(); i = i + 2 {
-    out.push((hex_value(input[i]) << 4) | hex_value(input[i + 1]))
-  }
-  out
+  Bytes::makei(input.length() / 2, fn(i) {
+    let hi = hex_value(input[2 * i])
+    let lo = hex_value(input[2 * i + 1])
+    ((hi << 4) | lo).to_byte()
+  })
 }
 
 ///|
-fn hex_nibble(value : UInt) -> String {
+fn hex_nibble(value : Int) -> String {
   match value {
-    0U => "0"
-    1U => "1"
-    2U => "2"
-    3U => "3"
-    4U => "4"
-    5U => "5"
-    6U => "6"
-    7U => "7"
-    8U => "8"
-    9U => "9"
-    10U => "a"
-    11U => "b"
-    12U => "c"
-    13U => "d"
-    14U => "e"
-    15U => "f"
+    0 => "0"
+    1 => "1"
+    2 => "2"
+    3 => "3"
+    4 => "4"
+    5 => "5"
+    6 => "6"
+    7 => "7"
+    8 => "8"
+    9 => "9"
+    10 => "a"
+    11 => "b"
+    12 => "c"
+    13 => "d"
+    14 => "e"
+    15 => "f"
     _ => abort("invalid nibble")
   }
 }
 
 ///|
-fn bytes_to_hex(bytes : Array[UInt]) -> String {
+fn bytes_to_hex(bytes : Bytes) -> String {
   let out = StringBuilder::new(size_hint=bytes.length() * 2)
   for byte in bytes {
-    out.write_string(hex_nibble(byte >> 4))
-    out.write_string(hex_nibble(byte & 15U))
+    let v = byte.to_int()
+    out.write_string(hex_nibble(v >> 4))
+    out.write_string(hex_nibble(v & 15))
   }
   out.to_string()
 }
