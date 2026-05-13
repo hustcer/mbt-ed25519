@@ -411,7 +411,10 @@ fn decode_point(bytes : Array[UInt]) -> Result[Point, String] {
   if !field_eq(x * x, xx) {
     x = modp(x * sqrt_m1)
   }
-  if !field_eq(x * x, xx) {
+  // Verify the curve equation -x^2 + y^2 == 1 + d*x^2*y^2 directly so the
+  // result does not silently rely on `invp(0)` returning 0 when v == 0.
+  let x2 = modp(x * x)
+  if !field_eq(modp(y2 - x2), modp(1N + d * x2 * y2)) {
     return Err("encoded point is not on Ed25519")
   }
   if (x % 2N == 1N) != (sign == 1U) {
