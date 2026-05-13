@@ -236,13 +236,12 @@ fn base_point_mul(s : BigInt) -> ExtendedPoint {
 
 ///|
 fn bytes_le_to_bigint(bytes : BytesView) -> BigInt {
-  let mut out = 0N
-  let mut factor = 1N
-  for byte in bytes {
-    out = out + BigInt::from_int(byte.to_int()) * factor
-    factor = factor * 256N
+  let length = bytes.length()
+  if length == 0 {
+    return 0N
   }
-  out
+  let be = Bytes::makei(length, fn(i) { bytes[length - 1 - i] })
+  BigInt::from_octets(be[:])
 }
 
 ///|
