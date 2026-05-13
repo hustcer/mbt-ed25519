@@ -154,12 +154,16 @@ test "verification rejects non-canonical identity encoding" {
     "5866666666666666666666666666666666666666666666666666666666666666" +
     "0100000000000000000000000000000000000000000000000000000000000000",
   )
-  assert_false(@ed25519.verify(non_canonical_identity, [0x61U], forged_signature))
+  assert_false(
+    @ed25519.verify(non_canonical_identity, [0x61U], forged_signature),
+  )
   @test.assert_eq(
     @ed25519.verify_result(non_canonical_identity, [0x61U], forged_signature),
     Err("encoded point is not canonical"),
   )
-  assert_verifying_key_error(non_canonical_identity, "encoded point is not canonical")
+  assert_verifying_key_error(
+    non_canonical_identity, "encoded point is not canonical",
+  )
 }
 
 ///|
@@ -220,5 +224,50 @@ test "malformed inputs return errors" {
   @test.assert_eq(
     @ed25519.verify_result([], [], []),
     Err("public key must be 32 bytes"),
+  )
+}
+
+///|
+test "malformed point encodings return errors" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let valid_signature = @ed25519.sign(seed, []).unwrap()
+  let y_equal_to_p = hex(
+    "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  )
+  @test.assert_eq(
+    @ed25519.verify_result(y_equal_to_p, [], valid_signature),
+    Err("encoded point y coordinate is out of range"),
+  )
+  assert_verifying_key_error(
+    y_equal_to_p, "encoded point y coordinate is out of range",
+  )
+  let signature_with_invalid_r = hex(
+    "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f" +
+    "0000000000000000000000000000000000000000000000000000000000000000",
+  )
+  @test.assert_eq(
+    @ed25519.verify_result(public_key, [], signature_with_invalid_r),
+    Err("encoded point y coordinate is out of range"),
+  )
+}
+
+///|
+test "malformed signature byte values return errors" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let signature = @ed25519.sign(seed, []).unwrap()
+  signature[0] = 256U
+  @test.assert_eq(
+    @ed25519.verify_result(public_key, [], signature),
+    Err("signature: byte value must be in 0..255"),
+  )
+  @test.assert_eq(
+    @ed25519.verify_result(public_key, [256U], @ed25519.sign(seed, []).unwrap()),
+    Err("message: byte value must be in 0..255"),
   )
 }
