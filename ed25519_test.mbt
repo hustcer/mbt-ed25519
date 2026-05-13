@@ -286,3 +286,50 @@ test "short signature is rejected" {
     Err("signature must be 64 bytes"),
   )
 }
+
+///|
+test "verification distinguishes s = L from s < L" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let empty : Bytes = b""
+  let valid_sig = @ed25519.sign(seed, empty).unwrap()
+  // L - 1 in little-endian: largest scalar that should pass the s < L check.
+  // The signature is still rejected at the curve check, but the error must
+  // not be "out of range", which would imply the boundary is inclusive.
+  let s_l_minus_1 = hex(
+    "ecd3f55c1a631258d69cf7a2def9de1400000000000000000000000000000010",
+  )
+  let tampered = Bytes::makei(64, fn(i) {
+    if i < 32 {
+      valid_sig[i]
+    } else {
+      s_l_minus_1[i - 32]
+    }
+  })
+  @test.assert_eq(
+    @ed25519.verify_result(public_key, empty, tampered),
+    Ok(false),
+  )
+}
+
+///|
+test "sign and verify message spanning multiple SHA-512 blocks" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  // SHA-512 block size is 128 bytes; 200 bytes guarantees a multi-block input.
+  let long_message = Bytes::makei(200, fn(i) { (i % 256).to_byte() })
+  let signature = @ed25519.sign(seed, long_message).unwrap()
+  assert_true(@ed25519.verify(public_key, long_message, signature))
+  let tampered_last_byte = Bytes::makei(200, fn(i) {
+    if i == 199 {
+      long_message[199] ^ b'\x01'
+    } else {
+      long_message[i]
+    }
+  })
+  assert_false(@ed25519.verify(public_key, tampered_last_byte, signature))
+}
