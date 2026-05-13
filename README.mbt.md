@@ -136,9 +136,12 @@ small-order public keys, small-order signature `R` points, and non-canonical
 `S` scalars are rejected as malformed inputs.
 
 The curve arithmetic uses MoonBit `BigInt`, extended Edwards coordinates,
-5-bit scalar windows, a cached basepoint table, and an interleaved
-double-scalar verification path. The cached key types avoid repeated setup work
-when signing or verifying multiple messages with the same key material.
+fixed-length 5-bit scalar windows, a cached basepoint table, and an interleaved
+double-scalar verification path. The fixed scalar schedule removes window-length
+and zero-digit branches, but this package is still not constant-time because
+`BigInt` arithmetic and table access remain data-dependent. The cached key types
+avoid repeated setup work when signing or verifying multiple messages with the
+same key material.
 
 ## Development
 

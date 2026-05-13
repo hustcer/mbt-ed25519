@@ -176,7 +176,7 @@ fn extended_window5_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
 fn scalar_window5_digits(s : BigInt) -> Array[Int] {
   let digits : Array[Int] = []
   let mut n = s
-  while n > 0N {
+  for _ in 0..<51 {
     digits.push((n % 32N).to_int())
     n = n / 32N
   }
@@ -189,9 +189,6 @@ fn extended_mul_with_window5_table(
   table : Array[ExtendedPoint],
 ) -> ExtendedPoint {
   let digits = scalar_window5_digits(s)
-  if digits.length() == 0 {
-    return extended_identity()
-  }
   let mut acc = extended_identity()
   for i = digits.length() - 1; i >= 0; i = i - 1 {
     acc = extended_double(acc)
@@ -200,9 +197,7 @@ fn extended_mul_with_window5_table(
     acc = extended_double(acc)
     acc = extended_double(acc)
     let digit = digits[i]
-    if digit != 0 {
-      acc = extended_add(acc, table[digit])
-    }
+    acc = extended_add(acc, table[digit])
   }
   acc
 }
@@ -216,32 +211,15 @@ fn extended_mul_two_with_window5_tables(
 ) -> ExtendedPoint {
   let a_digits = scalar_window5_digits(a_scalar)
   let b_digits = scalar_window5_digits(b_scalar)
-  let mut len = a_digits.length()
-  if b_digits.length() > len {
-    len = b_digits.length()
-  }
-  if len == 0 {
-    return extended_identity()
-  }
   let mut acc = extended_identity()
-  for i = len - 1; i >= 0; i = i - 1 {
+  for i = a_digits.length() - 1; i >= 0; i = i - 1 {
     acc = extended_double(acc)
     acc = extended_double(acc)
     acc = extended_double(acc)
     acc = extended_double(acc)
     acc = extended_double(acc)
-    if i < a_digits.length() {
-      let digit = a_digits[i]
-      if digit != 0 {
-        acc = extended_add(acc, a_table[digit])
-      }
-    }
-    if i < b_digits.length() {
-      let digit = b_digits[i]
-      if digit != 0 {
-        acc = extended_add(acc, b_table[digit])
-      }
-    }
+    acc = extended_add(acc, a_table[a_digits[i]])
+    acc = extended_add(acc, b_table[b_digits[i]])
   }
   acc
 }

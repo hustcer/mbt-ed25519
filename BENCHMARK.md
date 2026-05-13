@@ -21,13 +21,13 @@ Captured with `moon bench --release` on 2026-05-13:
 
 | Case                                                      | Mean    |
 | --------------------------------------------------------- | ------- |
-| derive public key from seed                               | 1.56 ms |
-| sign license-sized payload                                | 3.21 ms |
-| sign license-sized payload with cached SigningKey         | 1.57 ms |
-| verify license-sized payload                              | 2.77 ms |
-| verify license-sized payload with cached VerifyingKey     | 2.09 ms |
-| verify OpenSSL Ed25519 signature                          | 2.74 ms |
-| verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.05 ms |
+| derive public key from seed                               | 1.53 ms |
+| sign license-sized payload                                | 3.04 ms |
+| sign license-sized payload with cached SigningKey         | 1.52 ms |
+| verify license-sized payload                              | 2.65 ms |
+| verify license-sized payload with cached VerifyingKey     | 2.02 ms |
+| verify OpenSSL Ed25519 signature                          | 2.67 ms |
+| verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.02 ms |
 
 These numbers should be treated as a local baseline, not a portability guarantee. They are useful for comparing optimization branches on the same machine and MoonBit toolchain.
 
@@ -118,24 +118,27 @@ Captured with `moon bench --release` on 2026-05-05:
 | verify license-sized payload     | 2.66 ms         | 2.01 ms                    | 24.44%            |
 | verify OpenSSL Ed25519 signature | 2.66 ms         | 2.00 ms                    | 24.81%            |
 
-### Strict Point Validation and Incremental Hash Input
+### Strict Point Validation, Incremental Hash Input, and Fixed Window Schedule
 
 Added strict rejection for non-canonical point encodings, small-order public
 keys, small-order signature `R` points, and non-canonical `S` scalars. Changed
 the signing and verification hash inputs to use incremental SHA-512 updates
-instead of allocating concatenated temporary arrays.
+instead of allocating concatenated temporary arrays. Changed scalar
+multiplication to a fixed 51-window schedule that always executes the table-add
+step, reducing scalar-dependent branches without making the BigInt
+implementation constant-time.
 
 Captured with `moon bench --release` on 2026-05-13:
 
 | Case                                                      | Mean    |
 | --------------------------------------------------------- | ------- |
-| derive public key from seed                               | 1.56 ms |
-| sign license-sized payload                                | 3.21 ms |
-| sign license-sized payload with cached SigningKey         | 1.57 ms |
-| verify license-sized payload                              | 2.77 ms |
-| verify license-sized payload with cached VerifyingKey     | 2.09 ms |
-| verify OpenSSL Ed25519 signature                          | 2.74 ms |
-| verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.05 ms |
+| derive public key from seed                               | 1.53 ms |
+| sign license-sized payload                                | 3.04 ms |
+| sign license-sized payload with cached SigningKey         | 1.52 ms |
+| verify license-sized payload                              | 2.65 ms |
+| verify license-sized payload with cached VerifyingKey     | 2.02 ms |
+| verify OpenSSL Ed25519 signature                          | 2.67 ms |
+| verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.02 ms |
 
 For full validation after optimization:
 
