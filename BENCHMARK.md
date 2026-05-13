@@ -17,7 +17,25 @@ For implementation work, run the same command before and after changes and compa
 
 ## Current Local Baseline
 
-Captured with `moon bench --release` on 2026-05-13:
+Captured with `moon bench --release` on 2026-05-13 (v0.2.0; `Bytes`/`BytesView` public API, `BigInt::from_octets` decoding, consolidated SHA-512 input buffer):
+
+| Case                                                      | Mean    |
+| --------------------------------------------------------- | ------- |
+| derive public key from seed                               | 1.54 ms |
+| sign license-sized payload                                | 3.10 ms |
+| sign license-sized payload with cached SigningKey         | 1.55 ms |
+| verify license-sized payload                              | 2.70 ms |
+| verify license-sized payload with cached VerifyingKey     | 2.05 ms |
+| verify OpenSSL Ed25519 signature                          | 2.71 ms |
+| verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.10 ms |
+
+These numbers should be treated as a local baseline, not a portability guarantee. They are useful for comparing optimization branches on the same machine and MoonBit toolchain.
+
+Compared to the v0.1.2 baseline below (same date), v0.2.0 is within ±3% on every case. The `Bytes` API removes per-call byte-value validation but adds a `Bytes::makei` reversal in `bytes_le_to_bigint`; net wash on the BigInt-dominated hot path.
+
+## v0.1.2 Reference Baseline (Array[UInt] API)
+
+Captured with `moon bench --release` on 2026-05-13 (v0.1.2; `Array[UInt]` public API, `byte_checked` per-byte validation):
 
 | Case                                                      | Mean    |
 | --------------------------------------------------------- | ------- |
@@ -28,8 +46,6 @@ Captured with `moon bench --release` on 2026-05-13:
 | verify license-sized payload with cached VerifyingKey     | 2.02 ms |
 | verify OpenSSL Ed25519 signature                          | 2.67 ms |
 | verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.02 ms |
-
-These numbers should be treated as a local baseline, not a portability guarantee. They are useful for comparing optimization branches on the same machine and MoonBit toolchain.
 
 ## Optimization History
 
