@@ -27,24 +27,29 @@ def file-hex [path: path]: nothing -> string {
   open --raw $path | encode hex | str trim | str downcase
 }
 
-def last-hex-bytes [hex: string, byte_count: int]: nothing -> string {
-  let char_count = ($byte_count * 2)
-  let start = (($hex | str length) - $char_count)
-  if $start < 0 {
-    fail $'hex input is shorter than ($byte_count) bytes'
+def extract-prefixed-hex [
+  label: string
+  input_hex: string
+  prefix: string
+  byte_count: int
+]: nothing -> string {
+  let expected_len = (($prefix | str length) + ($byte_count * 2))
+  let actual_len = ($input_hex | str length)
+  if $actual_len != $expected_len {
+    fail $'($label) DER length mismatch: expected ($expected_len) hex chars, got ($actual_len)'
   }
-  $hex | str substring ($start)..
+  if not ($input_hex | str starts-with $prefix) {
+    fail $'($label) DER prefix mismatch'
+  }
+  $input_hex | str substring ($prefix | str length)..
 }
 
 def extract-seed-hex [private_der_hex: string]: nothing -> string {
-  let marker = '04220420'
-  let marker_index = ($private_der_hex | str index-of $marker)
-  if $marker_index < 0 {
-    fail 'OpenSSL Ed25519 PKCS#8 DER seed marker not found'
-  }
-  let start = ($marker_index + ($marker | str length))
-  let end = ($start + 63)
-  $private_der_hex | str substring ($start)..($end)
+  extract-prefixed-hex 'OpenSSL Ed25519 private key' $private_der_hex '302e020100300506032b657004220420' 32
+}
+
+def extract-public-key-hex [public_der_hex: string]: nothing -> string {
+  extract-prefixed-hex 'OpenSSL Ed25519 public key' $public_der_hex '302a300506032b6570032100' 32
 }
 
 def parse-key-value-output [output: string]: nothing -> record {
@@ -92,7 +97,7 @@ def main [
 
     let seed_hex = (extract-seed-hex (file-hex $key_der))
     let message_hex = (file-hex $message_path)
-    let openssl_public_hex = (last-hex-bytes (file-hex $public_der) 32)
+    let openssl_public_hex = (extract-public-key-hex (file-hex $public_der))
     let openssl_signature_hex = (file-hex $openssl_signature_path)
 
     let moon_result = (
