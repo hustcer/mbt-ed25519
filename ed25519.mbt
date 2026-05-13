@@ -265,34 +265,36 @@ fn sha512_words_to_bytes(words : FixedArray[UInt64]) -> Bytes {
 }
 
 ///|
-fn bytes_view_to_uint_array(bytes : BytesView) -> Array[UInt] {
-  let arr : Array[UInt] = Array::new(capacity=bytes.length())
+fn append_bytes_as_uint(arr : Array[UInt], bytes : BytesView) -> Unit {
   for byte in bytes {
     arr.push(byte.to_uint())
   }
-  arr
 }
 
 ///|
 fn sha512(input : BytesView) -> Bytes {
-  sha512_words_to_bytes(@sha2.Sha512::digest(bytes_view_to_uint_array(input)))
+  let arr : Array[UInt] = Array::new(capacity=input.length())
+  append_bytes_as_uint(arr, input)
+  sha512_words_to_bytes(@sha2.Sha512::digest(arr))
 }
 
 ///|
 fn sha512_concat2(a : BytesView, b : BytesView) -> Bytes {
-  let sha = @sha2.Sha512::new()
-  sha.update(bytes_view_to_uint_array(a))
-  sha.update(bytes_view_to_uint_array(b))
-  sha512_words_to_bytes(sha.finalize())
+  let arr : Array[UInt] = Array::new(capacity=a.length() + b.length())
+  append_bytes_as_uint(arr, a)
+  append_bytes_as_uint(arr, b)
+  sha512_words_to_bytes(@sha2.Sha512::digest(arr))
 }
 
 ///|
 fn sha512_concat3(a : BytesView, b : BytesView, c : BytesView) -> Bytes {
-  let sha = @sha2.Sha512::new()
-  sha.update(bytes_view_to_uint_array(a))
-  sha.update(bytes_view_to_uint_array(b))
-  sha.update(bytes_view_to_uint_array(c))
-  sha512_words_to_bytes(sha.finalize())
+  let arr : Array[UInt] = Array::new(
+    capacity=a.length() + b.length() + c.length(),
+  )
+  append_bytes_as_uint(arr, a)
+  append_bytes_as_uint(arr, b)
+  append_bytes_as_uint(arr, c)
+  sha512_words_to_bytes(@sha2.Sha512::digest(arr))
 }
 
 ///|
