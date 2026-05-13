@@ -24,7 +24,7 @@ Add the module dependency in `moon.mod.json`:
 
 Import it from `moon.pkg` with an alias:
 
-```moonbit
+```moonbit nocheck
 import {
   "hustcer/ed25519" @ed25519,
 }
@@ -79,16 +79,23 @@ caller needs to distinguish malformed input from a valid-but-rejected signature.
 One-off signing and verification:
 
 ```moonbit nocheck
+///|
 let seed : Array[UInt] = [
-  0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60,
-  0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c, 0xc4,
-  0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19,
-  0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae, 0x7f, 0x60,
+  0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec,
+  0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03,
+  0x1c, 0xae, 0x7f, 0x60,
 ]
+
+///|
 let message : Array[UInt] = [0x6c, 0x69, 0x63, 0x65, 0x6e, 0x73, 0x65]
 
+///|
 let public_key = @ed25519.derive_public_key(seed).unwrap()
+
+///|
 let signature = @ed25519.sign(seed, message).unwrap()
+
+///|
 let ok = @ed25519.verify(public_key, message, signature)
 ```
 
@@ -96,8 +103,13 @@ For repeated signing with the same seed, create a `SigningKey` once. It caches
 the expanded scalar, prefix, and derived public key:
 
 ```moonbit nocheck
+///|
 let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
+
+///|
 let public_key = signing_key.public_key()
+
+///|
 let signature = signing_key.sign(message).unwrap()
 ```
 
@@ -105,7 +117,10 @@ For repeated verification with the same public key, create a `VerifyingKey`
 once. It caches the decoded public key and verification table:
 
 ```moonbit nocheck
+///|
 let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+
+///|
 let ok = verifying_key.verify(message, signature)
 ```
 

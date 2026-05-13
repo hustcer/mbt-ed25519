@@ -37,11 +37,11 @@ test "rfc8032 vector 1: empty message" {
     "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155" +
     "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
   )
-  assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  assert_eq(@ed25519.sign(seed, []), Ok(signature))
+  @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
+  @test.assert_eq(@ed25519.sign(seed, []), Ok(signature))
   let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
-  assert_eq(signing_key.public_key(), public_key)
-  assert_eq(signing_key.sign([]), Ok(signature))
+  @test.assert_eq(signing_key.public_key(), public_key)
+  @test.assert_eq(signing_key.sign([]), Ok(signature))
   assert_true(@ed25519.verify(public_key, [], signature))
 }
 
@@ -58,8 +58,8 @@ test "rfc8032 vector 2: one byte message" {
     "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da" +
     "085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
   )
-  assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  assert_eq(@ed25519.sign(seed, message), Ok(signature))
+  @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
+  @test.assert_eq(@ed25519.sign(seed, message), Ok(signature))
   assert_true(@ed25519.verify(public_key, message, signature))
 }
 
@@ -76,8 +76,8 @@ test "rfc8032 vector 3: two byte message" {
     "6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac" +
     "18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a",
   )
-  assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  assert_eq(@ed25519.sign(seed, message), Ok(signature))
+  @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
+  @test.assert_eq(@ed25519.sign(seed, message), Ok(signature))
   assert_true(@ed25519.verify(public_key, message, signature))
 }
 
@@ -127,30 +127,30 @@ test "openssl interop: verifies external Ed25519 signature" {
   )
   assert_true(@ed25519.verify(public_key, message, signature))
   let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
-  assert_eq(verifying_key.public_key(), public_key)
+  @test.assert_eq(verifying_key.public_key(), public_key)
   assert_true(verifying_key.verify(message, signature))
 }
 
 ///|
 test "malformed inputs return errors" {
-  assert_eq(@ed25519.derive_public_key([]), Err("seed must be 32 bytes"))
+  @test.assert_eq(@ed25519.derive_public_key([]), Err("seed must be 32 bytes"))
   match @ed25519.SigningKey::from_seed([]) {
-    Err(message) => assert_eq(message, "seed must be 32 bytes")
+    Err(message) => @test.assert_eq(message, "seed must be 32 bytes")
     Ok(_) => abort("expected invalid seed to fail")
   }
   match @ed25519.VerifyingKey::from_public_key([]) {
-    Err(message) => assert_eq(message, "public key must be 32 bytes")
+    Err(message) => @test.assert_eq(message, "public key must be 32 bytes")
     Ok(_) => abort("expected invalid public key to fail")
   }
-  assert_eq(@ed25519.sign([], []), Err("seed must be 32 bytes"))
-  assert_eq(
+  @test.assert_eq(@ed25519.sign([], []), Err("seed must be 32 bytes"))
+  @test.assert_eq(
     @ed25519.sign(
       hex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"),
       [256U],
     ),
     Err("message: byte value must be in 0..255"),
   )
-  assert_eq(
+  @test.assert_eq(
     @ed25519.verify_result([], [], []),
     Err("public key must be 32 bytes"),
   )
