@@ -13,18 +13,21 @@ The benchmark suite covers:
 - verifying that license payload
 - verifying an OpenSSL-generated Ed25519 signature
 
-For implementation work, run the same command before and after changes and compare the per-benchmark mean/median values. The current implementation is BigInt + affine Edwards coordinates, so signing and verification are expected to be dominated by scalar multiplication and field inversion.
+For implementation work, run the same command before and after changes and compare the per-benchmark mean/median values. The current implementation is BigInt + extended Edwards coordinates, so signing and verification are expected to be dominated by scalar multiplication.
 
 ## Current Local Baseline
 
-Captured with `moon bench --release` on 2026-05-05:
+Captured with `moon bench --release` on 2026-05-13:
 
-| Case                             | Mean      |
-| -------------------------------- | --------- |
-| derive public key from seed      | 185.36 ms |
-| sign license-sized payload       | 373.24 ms |
-| verify license-sized payload     | 381.89 ms |
-| verify OpenSSL Ed25519 signature | 369.25 ms |
+| Case                                                      | Mean    |
+| --------------------------------------------------------- | ------- |
+| derive public key from seed                               | 1.56 ms |
+| sign license-sized payload                                | 3.21 ms |
+| sign license-sized payload with cached SigningKey         | 1.57 ms |
+| verify license-sized payload                              | 2.77 ms |
+| verify license-sized payload with cached VerifyingKey     | 2.09 ms |
+| verify OpenSSL Ed25519 signature                          | 2.74 ms |
+| verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.05 ms |
 
 These numbers should be treated as a local baseline, not a portability guarantee. They are useful for comparing optimization branches on the same machine and MoonBit toolchain.
 
@@ -114,6 +117,25 @@ Captured with `moon bench --release` on 2026-05-05:
 | -------------------------------- | --------------- | -------------------------- | ----------------- |
 | verify license-sized payload     | 2.66 ms         | 2.01 ms                    | 24.44%            |
 | verify OpenSSL Ed25519 signature | 2.66 ms         | 2.00 ms                    | 24.81%            |
+
+### Strict Point Validation and Incremental Hash Input
+
+Added strict rejection for non-canonical point encodings, small-order public
+keys, small-order signature `R` points, and non-canonical `S` scalars. Changed
+the signing and verification hash inputs to use incremental SHA-512 updates
+instead of allocating concatenated temporary arrays.
+
+Captured with `moon bench --release` on 2026-05-13:
+
+| Case                                                      | Mean    |
+| --------------------------------------------------------- | ------- |
+| derive public key from seed                               | 1.56 ms |
+| sign license-sized payload                                | 3.21 ms |
+| sign license-sized payload with cached SigningKey         | 1.57 ms |
+| verify license-sized payload                              | 2.77 ms |
+| verify license-sized payload with cached VerifyingKey     | 2.09 ms |
+| verify OpenSSL Ed25519 signature                          | 2.74 ms |
+| verify OpenSSL Ed25519 signature with cached VerifyingKey | 2.05 ms |
 
 For full validation after optimization:
 

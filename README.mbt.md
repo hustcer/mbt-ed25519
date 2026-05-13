@@ -67,8 +67,10 @@ pub fn VerifyingKey::verify_result(
 - Every byte value in seeds, public keys, messages, and signatures must be in
   `0..255`.
 
-The implementation validates byte lengths and byte ranges. The `Result`
-returning functions report malformed inputs as `Err(String)`.
+The implementation validates byte lengths, byte ranges, canonical point
+encodings, public-key subgroup membership, signature `R` subgroup membership,
+and signature `S < L`. The `Result` returning functions report malformed inputs
+as `Err(String)`.
 
 `verify` and `VerifyingKey::verify` return `false` on malformed input or an
 invalid signature. Use `verify_result` or `VerifyingKey::verify_result` when the
@@ -128,6 +130,10 @@ let ok = verifying_key.verify(message, signature)
 
 This is a plain Ed25519 implementation using SHA-512 from `Tigls/mb-hash`.
 It does not expose Ed25519ph or Ed25519ctx variants.
+
+Verification is intentionally strict: non-canonical point encodings,
+small-order public keys, small-order signature `R` points, and non-canonical
+`S` scalars are rejected as malformed inputs.
 
 The curve arithmetic uses MoonBit `BigInt`, extended Edwards coordinates,
 5-bit scalar windows, a cached basepoint table, and an interleaved
