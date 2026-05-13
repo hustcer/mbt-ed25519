@@ -26,6 +26,17 @@ fn hex(input : String) -> Array[UInt] {
 }
 
 ///|
+fn assert_verifying_key_error(
+  public_key : Array[UInt],
+  expected : String,
+) -> Unit raise {
+  match @ed25519.VerifyingKey::from_public_key(public_key) {
+    Err(message) => @test.assert_eq(message, expected)
+    Ok(_) => abort("expected invalid public key to fail")
+  }
+}
+
+///|
 test "rfc8032 vector 1: empty message" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -110,6 +121,58 @@ test "verification rejects non-canonical s scalar" {
     signature[32 + i] = non_canonical_s[i]
   }
   assert_false(@ed25519.verify(public_key, message, signature))
+}
+
+///|
+test "verification rejects small-order public keys" {
+  let identity_public_key = hex(
+    "0100000000000000000000000000000000000000000000000000000000000000",
+  )
+  let message = hex("616263")
+  let forged_signature = hex(
+    "5866666666666666666666666666666666666666666666666666666666666666" +
+    "0100000000000000000000000000000000000000000000000000000000000000",
+  )
+  assert_false(@ed25519.verify(identity_public_key, message, forged_signature))
+  @test.assert_eq(
+    @ed25519.verify_result(identity_public_key, message, forged_signature),
+    Err("public key has small order"),
+  )
+  assert_verifying_key_error(identity_public_key, "public key has small order")
+}
+
+///|
+test "verification rejects non-canonical identity encoding" {
+  let non_canonical_identity = hex(
+    "0100000000000000000000000000000000000000000000000000000000000080",
+  )
+  let forged_signature = hex(
+    "5866666666666666666666666666666666666666666666666666666666666666" +
+    "0100000000000000000000000000000000000000000000000000000000000000",
+  )
+  assert_false(@ed25519.verify(non_canonical_identity, [0x61U], forged_signature))
+  @test.assert_eq(
+    @ed25519.verify_result(non_canonical_identity, [0x61U], forged_signature),
+    Err("encoded point is not canonical"),
+  )
+  assert_verifying_key_error(non_canonical_identity, "encoded point is not canonical")
+}
+
+///|
+test "verification rejects small-order signature r" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let signature_with_identity_r = hex(
+    "0100000000000000000000000000000000000000000000000000000000000000" +
+    "0000000000000000000000000000000000000000000000000000000000000000",
+  )
+  assert_false(@ed25519.verify(public_key, [], signature_with_identity_r))
+  @test.assert_eq(
+    @ed25519.verify_result(public_key, [], signature_with_identity_r),
+    Err("signature R has small order"),
+  )
 }
 
 ///|

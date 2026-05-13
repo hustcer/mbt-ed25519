@@ -114,6 +114,14 @@ fn extended_equal(a : ExtendedPoint, b : ExtendedPoint) -> Bool {
 }
 
 ///|
+fn extended_has_small_order(point : ExtendedPoint) -> Bool {
+  extended_equal(
+    extended_double(extended_double(extended_double(point))),
+    extended_identity(),
+  )
+}
+
+///|
 fn extended_neg(point : ExtendedPoint) -> ExtendedPoint {
   { x: modp(-point.x), y: point.y, z: point.z, t: modp(-point.t) }
 }
@@ -411,7 +419,26 @@ fn decode_point(bytes : Array[UInt]) -> Result[Point, String] {
   if (x % 2N == 1N) != (sign == 1U) {
     x = modp(p - x)
   }
-  Ok({ x, y })
+  let point = { x, y }
+  if encode_point(point) != bytes {
+    return Err("encoded point is not canonical")
+  }
+  Ok(point)
+}
+
+///|
+fn decode_prime_order_point(
+  bytes : Array[UInt],
+  name : String,
+) -> Result[Point, String] {
+  let point = match decode_point(bytes) {
+    Err(message) => return Err(message)
+    Ok(point) => point
+  }
+  if extended_has_small_order(extended_from_affine(point)) {
+    return Err("\{name} has small order")
+  }
+  Ok(point)
 }
 
 ///|
@@ -482,7 +509,7 @@ pub fn VerifyingKey::from_public_key(
     Err(message) => return Err(message)
     Ok(_) => ()
   }
-  let point = match decode_point(public_key) {
+  let point = match decode_prime_order_point(public_key, "public key") {
     Err(message) => return Err(message)
     Ok(point) => point
   }
@@ -570,7 +597,7 @@ pub fn verify_result(
     Err(message) => return Err(message)
     Ok(_) => ()
   }
-  let a = match decode_point(public_key) {
+  let a = match decode_prime_order_point(public_key, "public key") {
     Err(message) => return Err(message)
     Ok(point) => point
   }
@@ -606,6 +633,9 @@ fn verify_with_neg_public_key_table(
   let r = match decode_point(r_encoded) {
     Err(message) => return Err(message)
     Ok(point) => point
+  }
+  if extended_has_small_order(extended_from_affine(r)) {
+    return Err("signature R has small order")
   }
   let k = modl(
     bytes_le_to_bigint(sha512(concat3(r_encoded, public_key, message))),
