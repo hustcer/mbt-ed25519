@@ -27,7 +27,7 @@ test "sha512 byte order matches RFC8032 seed hash" {
     "357c83864f2833cb427a2ef1c00a013cfdff2768d980c0a3a520f006904de90f" +
     "9b4f0afe280b746a778684e75442502057b7473a03f08f96f5a38e9287e01f8f",
   )
-  @test.assert_eq(sha512(seed[:]), expected)
+  @test.assert_eq(sha512(seed), expected)
 }
 
 ///|
@@ -35,20 +35,20 @@ test "nonce scalar matches RFC8032 vector 1" {
   let seed = wb_hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let digest = sha512(seed[:])
+  let digest = sha512(seed)
   let prefix = digest[32:64].to_owned()
   @test.assert_eq(
     prefix,
     wb_hex("9b4f0afe280b746a778684e75442502057b7473a03f08f96f5a38e9287e01f8f"),
   )
   @test.assert_eq(
-    sha512(prefix[:]),
+    sha512(prefix),
     wb_hex(
       "b6b19cd8e0426f5983fa112d89a143aa97dab8bc5deb8d5b6253c928b65272f4" +
       "044098c2a990039cde5b6a4818df0bfb6e40dc5dee54248032962323e701352d",
     ),
   )
-  let r = modl(bytes_le_to_bigint(sha512(prefix[:])[:]))
+  let r = modl(bytes_le_to_bigint(sha512(prefix)))
   let expected = wb_hex(
     "f38907308c893deaf244787db4af53682249107418afc2edc58f75ac58a07404",
   )

@@ -241,7 +241,7 @@ fn bytes_le_to_bigint(bytes : BytesView) -> BigInt {
     return 0N
   }
   let be = Bytes::makei(length, fn(i) { bytes[length - 1 - i] })
-  BigInt::from_octets(be[:])
+  BigInt::from_octets(be)
 }
 
 ///|
@@ -340,7 +340,7 @@ fn decode_point(bytes : BytesView) -> Result[Point, String] {
       bytes[i]
     }
   })
-  let y = bytes_le_to_bigint(y_bytes[:])
+  let y = bytes_le_to_bigint(y_bytes)
   if y >= p {
     return Err("encoded point y coordinate is out of range")
   }
@@ -391,7 +391,7 @@ fn expanded_secret(seed : BytesView) -> Result[(BigInt, Bytes), String] {
   let digest = sha512(seed)
   let a_bytes = clamp_scalar(digest[0:32])
   let prefix = digest[32:64].to_owned()
-  Ok((bytes_le_to_bigint(a_bytes[:]), prefix))
+  Ok((bytes_le_to_bigint(a_bytes), prefix))
 }
 
 ///|
@@ -401,10 +401,10 @@ fn sign_with_expanded_key(
   public_key : BytesView,
   message : BytesView,
 ) -> Bytes {
-  let r = modl(bytes_le_to_bigint(sha512_concat2(prefix, message)[:]))
+  let r = modl(bytes_le_to_bigint(sha512_concat2(prefix, message)))
   let r_encoded = encode_extended_point(base_point_mul(r))
   let k = modl(
-    bytes_le_to_bigint(sha512_concat3(r_encoded[:], public_key, message)[:]),
+    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
   )
   let s = modl(r + k * a)
   r_encoded + bigint_to_le_bytes(s, 32)
@@ -431,7 +431,7 @@ pub fn SigningKey::public_key(self : SigningKey) -> Bytes {
 ///|
 /// Sign a message with a pre-expanded Ed25519 signing key.
 pub fn SigningKey::sign(self : SigningKey, message : BytesView) -> Bytes {
-  sign_with_expanded_key(self.a, self.prefix[:], self.public_key[:], message)
+  sign_with_expanded_key(self.a, self.prefix, self.public_key, message)
 }
 
 ///|
@@ -478,7 +478,7 @@ pub fn VerifyingKey::verify_result(
   signature : BytesView,
 ) -> Result[Bool, String] {
   verify_with_neg_public_key_table(
-    self.public_key[:],
+    self.public_key,
     self.neg_public_key_window5_table,
     message,
     signature,
@@ -501,7 +501,7 @@ pub fn sign(seed : BytesView, message : BytesView) -> Result[Bytes, String] {
     Err(err) => Err(err)
     Ok((a, prefix)) => {
       let public_key = encode_extended_point(base_point_mul(a))
-      Ok(sign_with_expanded_key(a, prefix[:], public_key[:], message))
+      Ok(sign_with_expanded_key(a, prefix, public_key, message))
     }
   }
 }
@@ -562,7 +562,7 @@ fn verify_with_neg_public_key_table(
     return Err("signature R has small order")
   }
   let k = modl(
-    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)[:]),
+    bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
   )
   let combined = extended_mul_two_with_window5_tables(
     s, base_point_window5_table, k, neg_public_key_window5_table,
