@@ -628,7 +628,7 @@ fn verify_with_neg_public_key_table(
   let s_bytes = slice_bytes(signature, 32, 64)
   let s = bytes_le_to_bigint(s_bytes)
   if s >= l {
-    return Ok(false)
+    return Err("signature S scalar is out of range")
   }
   let r = match decode_point(r_encoded) {
     Err(message) => return Err(message)

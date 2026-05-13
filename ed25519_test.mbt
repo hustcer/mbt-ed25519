@@ -121,6 +121,10 @@ test "verification rejects non-canonical s scalar" {
     signature[32 + i] = non_canonical_s[i]
   }
   assert_false(@ed25519.verify(public_key, message, signature))
+  @test.assert_eq(
+    @ed25519.verify_result(public_key, message, signature),
+    Err("signature S scalar is out of range"),
+  )
 }
 
 ///|
