@@ -132,12 +132,14 @@ inputs.
 
 The curve arithmetic uses MoonBit `BigInt`, extended Edwards coordinates,
 fixed-length 5-bit scalar windows, a cached basepoint table, and an interleaved
-double-scalar verification path. The signing and key-derivation path scans the
-full basepoint table for each scalar window instead of indexing it directly by a
-secret digit, but this package is still not constant-time because `BigInt`
-arithmetic, branching, allocation, and verification table access remain
-data-dependent. The cached key types avoid repeated setup work when signing or
-verifying multiple messages with the same key material.
+double-scalar verification path. SHA-512 inputs are fed in bounded chunks instead
+of first materializing `prefix || message` or `R || A || message` as one large
+array. The signing and key-derivation path scans the full basepoint table for
+each scalar window instead of indexing it directly by a secret digit, but this
+package is still not constant-time because `BigInt` arithmetic, branching,
+allocation, and verification table access remain data-dependent. The cached key
+types avoid repeated setup work when signing or verifying multiple messages with
+the same key material.
 
 ## Development
 

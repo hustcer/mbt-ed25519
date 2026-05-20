@@ -31,6 +31,38 @@ test "sha512 byte order matches RFC8032 seed hash" {
 }
 
 ///|
+fn direct_sha512_concat3(a : BytesView, b : BytesView, c : BytesView) -> Bytes {
+  let arr : Array[UInt] = Array::new(
+    capacity=a.length() + b.length() + c.length(),
+  )
+  wb_append_bytes_as_uint(arr, a)
+  wb_append_bytes_as_uint(arr, b)
+  wb_append_bytes_as_uint(arr, c)
+  sha512_words_to_bytes(@sha2.Sha512::digest(arr))
+}
+
+///|
+fn wb_append_bytes_as_uint(arr : Array[UInt], bytes : BytesView) -> Unit {
+  for byte in bytes {
+    arr.push(byte.to_uint())
+  }
+}
+
+///|
+test "sha512 streaming helpers match direct digest across chunk boundaries" {
+  let a = Bytes::makei(17, fn(i) { (i + 1).to_byte() })
+  let b = Bytes::makei(sha512_update_chunk_size + 19, fn(i) {
+    ((i * 3 + 7) % 256).to_byte()
+  })
+  let c = Bytes::makei(sha512_update_chunk_size * 2 + 5, fn(i) {
+    ((i * 5 + 11) % 256).to_byte()
+  })
+  @test.assert_eq(sha512(a), direct_sha512_concat3(a, b"", b""))
+  @test.assert_eq(sha512_concat2(a, b), direct_sha512_concat3(a, b, b""))
+  @test.assert_eq(sha512_concat3(a, b, c), direct_sha512_concat3(a, b, c))
+}
+
+///|
 test "nonce scalar matches RFC8032 vector 1" {
   let seed = wb_hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",

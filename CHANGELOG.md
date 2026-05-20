@@ -21,7 +21,9 @@ All notable changes to this project will be documented in this file.
 ### Performance
 
 - Replace the manual little-endian byte loop with `BigInt::from_octets`.
-- Build the SHA-512 input as a single `Array[UInt]` per call instead of chaining `Sha512::update` over multiple chunks; the streaming approach was tried during development but did not pay off with the current hash dependency, so signing and verification keep a single `Sha512::digest` call.
+- Feed SHA-512 inputs in bounded chunks instead of materializing full
+  concatenated `Array[UInt]` values for `prefix || message` and
+  `R || A || message`.
 
 ### Tests
 
