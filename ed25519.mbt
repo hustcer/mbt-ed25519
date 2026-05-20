@@ -197,9 +197,23 @@ fn extended_mul_with_window5_table(
     acc = extended_double(acc)
     acc = extended_double(acc)
     let digit = digits[i]
-    acc = extended_add(acc, table[digit])
+    acc = extended_add(acc, extended_select_window5(table, digit))
   }
   acc
+}
+
+///|
+fn extended_select_window5(
+  table : Array[ExtendedPoint],
+  digit : Int,
+) -> ExtendedPoint {
+  let mut selected = extended_identity()
+  for i in 0..<32 {
+    if i == digit {
+      selected = table[i]
+    }
+  }
+  selected
 }
 
 ///|

@@ -78,6 +78,17 @@ test "windowed scalar multiplication handles identity and base point" {
 }
 
 ///|
+test "windowed scalar selection scans all digit slots" {
+  let table = extended_window5_table(base_point())
+  for digit in 0..<32 {
+    @test.assert_eq(
+      encode_extended_point(extended_select_window5(table, digit)),
+      encode_extended_point(table[digit]),
+    )
+  }
+}
+
+///|
 fn reassemble_window5(digits : Array[Int]) -> BigInt {
   let mut acc = 0N
   let mut factor = 1N
