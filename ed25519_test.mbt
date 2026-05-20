@@ -164,6 +164,29 @@ test "verification rejects small-order public keys" {
 }
 
 ///|
+test "verification rejects non-prime-order public keys" {
+  // B plus a 4-torsion point: not small-order, but not in the prime-order subgroup.
+  let torsion_mixed_public_key = hex(
+    "5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea",
+  )
+  let message = hex("616263")
+  let forged_signature = hex(
+    "5866666666666666666666666666666666666666666666666666666666666666" +
+    "0100000000000000000000000000000000000000000000000000000000000000",
+  )
+  assert_false(
+    @ed25519.verify(torsion_mixed_public_key, message, forged_signature),
+  )
+  @test.assert_eq(
+    @ed25519.verify_result(torsion_mixed_public_key, message, forged_signature),
+    Err("public key is not in the prime-order subgroup"),
+  )
+  assert_verifying_key_error(
+    torsion_mixed_public_key, "public key is not in the prime-order subgroup",
+  )
+}
+
+///|
 test "verification rejects non-canonical identity encoding" {
   let non_canonical_identity = hex(
     "0100000000000000000000000000000000000000000000000000000000000080",
@@ -202,6 +225,26 @@ test "verification rejects small-order signature r" {
   @test.assert_eq(
     @ed25519.verify_result(public_key, empty, signature_with_identity_r),
     Err("signature R has small order"),
+  )
+}
+
+///|
+test "verification rejects non-prime-order signature r" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let signature_with_torsion_mixed_r = hex(
+    "5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea" +
+    "0000000000000000000000000000000000000000000000000000000000000000",
+  )
+  let empty : Bytes = b""
+  assert_false(
+    @ed25519.verify(public_key, empty, signature_with_torsion_mixed_r),
+  )
+  @test.assert_eq(
+    @ed25519.verify_result(public_key, empty, signature_with_torsion_mixed_r),
+    Err("signature R is not in the prime-order subgroup"),
   )
 }
 

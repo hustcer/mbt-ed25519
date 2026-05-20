@@ -122,6 +122,15 @@ fn extended_has_small_order(point : ExtendedPoint) -> Bool {
 }
 
 ///|
+fn extended_has_prime_order(point : ExtendedPoint) -> Bool {
+  let product = extended_mul_with_window5_table(
+    l,
+    extended_window5_table(point),
+  )
+  extended_equal(product, extended_identity())
+}
+
+///|
 fn extended_neg(point : ExtendedPoint) -> ExtendedPoint {
   { x: modp(-point.x), y: point.y, z: point.z, t: modp(-point.t) }
 }
@@ -396,6 +405,9 @@ fn decode_prime_order_point(
   if extended_has_small_order(extended_from_affine(point)) {
     return Err("\{name} has small order")
   }
+  if !extended_has_prime_order(extended_from_affine(point)) {
+    return Err("\{name} is not in the prime-order subgroup")
+  }
   Ok(point)
 }
 
@@ -570,12 +582,9 @@ fn verify_with_neg_public_key_table(
   if s >= l {
     return Err("signature S scalar is out of range")
   }
-  let r = match decode_point(r_encoded) {
+  let r = match decode_prime_order_point(r_encoded, "signature R") {
     Err(err) => return Err(err)
     Ok(point) => point
-  }
-  if extended_has_small_order(extended_from_affine(r)) {
-    return Err("signature R has small order")
   }
   let k = modl(
     bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),

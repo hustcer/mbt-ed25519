@@ -11,7 +11,8 @@ All notable changes to this project will be documented in this file.
 
 ### Security
 
-- Reject non-canonical and small-order points during point decoding.
+- Reject non-canonical points, small-order points, and points outside the
+  prime-order subgroup during point decoding.
 - Return an error when the signature scalar `s` is non-canonical (`s >= L`).
 - Verify the curve equation explicitly in `decode_point`.
 - Use a fixed-iteration loop count in scalar multiplication, removing data-dependent branches in the windowed loop (affects both signing and verification). Note: this does not make scalar multiplication constant-time, because the underlying BigInt field arithmetic is still operand-dependent.
