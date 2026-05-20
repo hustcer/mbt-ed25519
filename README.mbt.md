@@ -2,9 +2,9 @@
 
 A pure MoonBit implementation of plain Ed25519 signing and verification.
 
-The package implements deterministic Ed25519 over `Array[UInt]` byte arrays. It
-is intended for small payloads such as locally signed license data, plus tests
-and interoperability checks against RFC 8032 vectors and OpenSSL.
+The package implements deterministic Ed25519 over `BytesView` inputs and `Bytes`
+outputs. It is intended for small payloads such as locally signed license data,
+plus tests and interoperability checks against RFC 8032 vectors and OpenSSL.
 
 This package is not audited and is not written to be constant-time. Use a mature
 audited cryptography library for high-volume, network-facing, or
