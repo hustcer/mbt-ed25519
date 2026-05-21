@@ -17,7 +17,7 @@ Add the module dependency in `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/ed25519": "0.2.0"
+    "hustcer/ed25519": "0.2.1"
   }
 }
 ```
@@ -201,7 +201,7 @@ and the MoonBit interop binary in `cmd/openssl-interop`:
 7. **Non-prime-order public key** — verifies a legitimate OpenSSL signature
    against the cofactor-mixed public key `B + 4-torsion` (`5252cc0a…65ea`).
    MoonBit rejects the key as malformed (`public key is not in the prime-order
-   subgroup`) before signature math; OpenSSL loads the SPKI successfully and
+subgroup`) before signature math; OpenSSL loads the SPKI successfully and
    only fails at `pkeyutl -verify`.
 
 Pass `--keep-temp` to retain the working directory for inspection.

@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.1 - 2026-05-21
+
+### Security
+
+- Enforce prime-order subgroup membership for public keys during point decoding; reject small-order and cofactor-mixed points at verify time.
+- Use a fixed-size lookup table for signing scalar selection, removing a data-dependent branch in the scalar multiplication step.
+
+### Performance
+
+- Stream SHA-512 input in bounded chunks instead of allocating a full concatenated `Array[UInt]` per call, reducing peak memory allocation during signing and verification.
+
+### Tests
+
+- Add whitebox tests for `extended_has_prime_order` covering valid and cofactor-mixed points.
+- Add whitebox tests for `verify_report` (success, invalid, and error-string cases) in the `openssl-interop` tool.
+- Add blackbox tests asserting that non-prime-order public keys are rejected.
+- Extend the `openssl-interop` binary to expose `verify_result`, enabling cross-tool verification of error paths.
+
+### Refactor
+
+- Extract `verify_report` helper in `cmd/openssl-interop` to deduplicate result-formatting logic.
+
 ## v0.2.0 - 2026-05-15
 
 ### Breaking Changes
