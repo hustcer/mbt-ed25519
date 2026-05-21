@@ -3,6 +3,10 @@ import {
   "moonbitlang/core/argparse",
 }
 
+import {
+  "moonbitlang/core/test",
+} for "wbtest"
+
 options(
   "is-main": true,
 )

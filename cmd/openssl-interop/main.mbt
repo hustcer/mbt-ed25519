@@ -66,6 +66,15 @@ fn arg(matches : @argparse.Matches, name : String) -> String {
 }
 
 ///|
+fn verify_report(result : Result[Bool, String]) -> (Bool, String) {
+  match result {
+    Ok(true) => (true, "ok")
+    Ok(false) => (false, "invalid")
+    Err(err) => (false, err)
+  }
+}
+
+///|
 fn main {
   let command = @argparse.Command::new(
     "openssl-interop",
@@ -89,17 +98,13 @@ fn main {
   let openssl_signature = hex_to_bytes(arg(matches, "openssl_signature_hex"))
   let moon_public = @ed25519.derive_public_key(seed).unwrap()
   let moon_signature = @ed25519.sign(seed, message).unwrap()
+  let (moon_verifies_openssl_signature, moon_verify_openssl_result) = verify_report(
+    @ed25519.verify_result(openssl_public, message, openssl_signature),
+  )
   println("moon_public_hex=\{bytes_to_hex(moon_public)}")
   println("moon_signature_hex=\{bytes_to_hex(moon_signature)}")
-  println(
-    "moon_verifies_openssl_signature=\{@ed25519.verify(openssl_public, message, openssl_signature)}",
-  )
-  let verify_openssl_result = match
-    @ed25519.verify_result(openssl_public, message, openssl_signature) {
-    Ok(ok) => if ok { "ok" } else { "invalid" }
-    Err(err) => err
-  }
-  println("moon_verify_openssl_result=\{verify_openssl_result}")
+  println("moon_verifies_openssl_signature=\{moon_verifies_openssl_signature}")
+  println("moon_verify_openssl_result=\{moon_verify_openssl_result}")
   println(
     "moon_verifies_moon_signature=\{@ed25519.verify(moon_public, message, moon_signature)}",
   )
