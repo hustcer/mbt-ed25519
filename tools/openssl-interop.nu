@@ -205,7 +205,8 @@ def moon-interop [
     $moon.moon_public_hex? == null or
     $moon.moon_signature_hex? == null or
     $moon.moon_verifies_openssl_signature? == null or
-    $moon.moon_verifies_moon_signature? == null
+    $moon.moon_verifies_moon_signature? == null or
+    $moon.moon_verify_openssl_result? == null
   ) {
     fail $'moon openssl-interop output is incomplete:\n($moon_result.stdout)'
   }
@@ -488,6 +489,50 @@ def run-pubkey-tamper-rejection [workdir: path]: nothing -> list {
   } | flatten
 }
 
+# Scenario 7: non-prime-order public key (B plus a 4-torsion point). MoonBit
+# rejects it as malformed input before signature math; OpenSSL loads the SPKI
+# as a valid curve point and only fails at digest_verify.
+def run-non-prime-order-pubkey-rejection [workdir: path]: nothing -> list {
+  let case_dir = ($workdir | path join 'non-prime-order-pubkey')
+  mkdir $case_dir
+  let key = (openssl-genpkey-in $case_dir)
+  let message = ('abc' | encode utf-8)
+  let message_path = ($case_dir | path join 'msg.bin')
+  let openssl_sig_path = ($case_dir | path join 'openssl.sig')
+  $message | save -f $message_path
+  openssl-sign $key.key_pem $message_path $openssl_sig_path
+
+  let message_hex = (file-hex $message_path)
+  let openssl_signature_hex = (file-hex $openssl_sig_path)
+  let torsion_mixed_public_hex = (
+    '5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea'
+  )
+
+  let moon = (
+    moon-interop $key.seed_hex $message_hex $torsion_mixed_public_hex $openssl_signature_hex
+  )
+  assert-false 'non-prime-order-pubkey: MoonBit verify rejects' $moon.moon_verifies_openssl_signature
+  assert-eq 'non-prime-order-pubkey: MoonBit reports malformed public key' (
+    'public key is not in the prime-order subgroup'
+  ) $moon.moon_verify_openssl_result
+
+  let torsion_der_path = ($case_dir | path join 'torsion-pub.der')
+  let torsion_pem_path = ($case_dir | path join 'torsion-pub.pem')
+  save-hex-binary $torsion_der_path (wrap-public-key-der $torsion_mixed_public_hex)
+  ensure-ok 'non-prime-order-pubkey: OpenSSL loads torsion-mixed SPKI' (
+    ^openssl pkey -pubin -in $torsion_der_path -inform DER -pubout -out $torsion_pem_path | complete
+  )
+  assert-failure 'non-prime-order-pubkey: OpenSSL verify fails under torsion-mixed pubkey' (
+    openssl-verify $torsion_pem_path $message_path $openssl_sig_path
+  )
+
+  [
+    {scenario: 'non-prime-order-pubkey', check: 'MoonBit rejects with prime-order subgroup error', ok: true}
+    {scenario: 'non-prime-order-pubkey', check: 'OpenSSL loads torsion-mixed SPKI', ok: true}
+    {scenario: 'non-prime-order-pubkey', check: 'OpenSSL verify fails (decode OK, math rejects)', ok: true}
+  ]
+}
+
 def main [
   --iterations (-n): int = 4
   --keep-temp
@@ -505,6 +550,7 @@ def main [
       | append (run-pubkey-tamper-rejection $temp_dir)
       | append (run-reverse-pubkey-load $temp_dir)
       | append (run-external-seed-injection $temp_dir)
+      | append (run-non-prime-order-pubkey-rejection $temp_dir)
     )
 
     if not $keep_temp {

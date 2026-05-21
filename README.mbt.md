@@ -172,7 +172,7 @@ The interop check requires Nushell and OpenSSL:
 nu tools/openssl-interop.nu
 ```
 
-The script runs six scenario groups against a fresh OpenSSL Ed25519 install
+The script runs seven scenario groups against a fresh OpenSSL Ed25519 install
 and the MoonBit interop binary in `cmd/openssl-interop`:
 
 1. **Length matrix** — signs and cross-verifies messages of 1, 2, 32, 64, 111,
@@ -198,6 +198,11 @@ and the MoonBit interop binary in `cmd/openssl-interop`:
    signature for the empty message. Anchors the seed → key → signature
    pipeline at known coordinates. (The empty-message signing happens through
    MoonBit because `openssl pkeyutl -sign -rawin` refuses 0-byte input.)
+7. **Non-prime-order public key** — verifies a legitimate OpenSSL signature
+   against the cofactor-mixed public key `B + 4-torsion` (`5252cc0a…65ea`).
+   MoonBit rejects the key as malformed (`public key is not in the prime-order
+   subgroup`) before signature math; OpenSSL loads the SPKI successfully and
+   only fails at `pkeyutl -verify`.
 
 Pass `--keep-temp` to retain the working directory for inspection.
 

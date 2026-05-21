@@ -94,6 +94,12 @@ fn main {
   println(
     "moon_verifies_openssl_signature=\{@ed25519.verify(openssl_public, message, openssl_signature)}",
   )
+  let verify_openssl_result = match
+    @ed25519.verify_result(openssl_public, message, openssl_signature) {
+    Ok(ok) => if ok { "ok" } else { "invalid" }
+    Err(err) => err
+  }
+  println("moon_verify_openssl_result=\{verify_openssl_result}")
   println(
     "moon_verifies_moon_signature=\{@ed25519.verify(moon_public, message, moon_signature)}",
   )

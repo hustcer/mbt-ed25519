@@ -110,6 +110,26 @@ test "windowed scalar multiplication handles identity and base point" {
 }
 
 ///|
+test "prime-order check accepts base point and RFC8032 public key" {
+  assert_true(extended_has_prime_order(base_point()))
+  let rfc_public_key = wb_hex(
+    "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  )
+  let point = decode_point(rfc_public_key).unwrap()
+  assert_true(extended_has_prime_order(extended_from_affine(point)))
+}
+
+///|
+test "prime-order check rejects torsion coset without small order" {
+  let torsion_mixed = wb_hex(
+    "5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea",
+  )
+  let extended = extended_from_affine(decode_point(torsion_mixed).unwrap())
+  assert_false(extended_has_small_order(extended))
+  assert_false(extended_has_prime_order(extended))
+}
+
+///|
 test "windowed scalar selection scans all digit slots" {
   let table = extended_window5_table(base_point())
   for digit in 0..<32 {
