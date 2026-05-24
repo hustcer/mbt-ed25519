@@ -294,6 +294,11 @@ fn sha512_words_to_bytes(words : FixedArray[UInt64]) -> Bytes {
 }
 
 ///|
+/// Feed SHA-512 in fixed-size chunks so that a large message does not
+/// materialise a single `Array[UInt]` the size of the whole input. The exact
+/// value is a memory-vs-call-overhead trade-off: smaller chunks add per-update
+/// overhead without reducing peak allocation further; larger chunks negate the
+/// streaming benefit that motivated this helper in the first place.
 let sha512_update_chunk_size : Int = 1024
 
 ///|

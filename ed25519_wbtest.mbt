@@ -4,8 +4,10 @@ fn wb_hex_value(c : UInt16) -> UInt {
     c.to_uint() - 48U
   } else if c >= 97 && c <= 102 {
     c.to_uint() - 97U + 10U
-  } else {
+  } else if c >= 65 && c <= 70 {
     c.to_uint() - 65U + 10U
+  } else {
+    abort("invalid hex")
   }
 }
 
