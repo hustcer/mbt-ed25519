@@ -173,7 +173,7 @@ fn extended_double(point : ExtendedPoint) -> ExtendedPoint {
 
 ///|
 fn extended_window5_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
-  let table : Array[ExtendedPoint] = []
+  let table : Array[ExtendedPoint] = Array::new(capacity=32)
   table.push(extended_identity())
   for i in 1..<32 {
     table.push(extended_add(table[i - 1], point))
@@ -183,7 +183,7 @@ fn extended_window5_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
 
 ///|
 fn scalar_window5_digits(s : BigInt) -> Array[Int] {
-  let digits : Array[Int] = []
+  let digits : Array[Int] = Array::new(capacity=51)
   let mut n = s
   for _ in 0..<51 {
     digits.push((n % 32N).to_int())
@@ -198,8 +198,11 @@ fn extended_mul_with_window5_table(
   table : Array[ExtendedPoint],
 ) -> ExtendedPoint {
   let digits = scalar_window5_digits(s)
-  let mut acc = extended_identity()
-  for i = digits.length() - 1; i >= 0; i = i - 1 {
+  let last = digits.length() - 1
+  // Seed acc with the top window so the first iteration's five doublings of
+  // identity (and the implicit add-of-identity) become a no-op we can skip.
+  let mut acc = extended_select_window5(table, digits[last])
+  for i = last - 1; i >= 0; i = i - 1 {
     acc = extended_double(acc)
     acc = extended_double(acc)
     acc = extended_double(acc)
@@ -234,8 +237,11 @@ fn extended_mul_two_with_window5_tables(
 ) -> ExtendedPoint {
   let a_digits = scalar_window5_digits(a_scalar)
   let b_digits = scalar_window5_digits(b_scalar)
-  let mut acc = extended_identity()
-  for i = a_digits.length() - 1; i >= 0; i = i - 1 {
+  let last = a_digits.length() - 1
+  // Seed acc with the top windows so the first iteration's five doublings of
+  // identity are skipped. Scalars on this path are public (verification only).
+  let mut acc = extended_add(a_table[a_digits[last]], b_table[b_digits[last]])
+  for i = last - 1; i >= 0; i = i - 1 {
     acc = extended_double(acc)
     acc = extended_double(acc)
     acc = extended_double(acc)
