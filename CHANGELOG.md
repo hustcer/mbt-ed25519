@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.3.0 - 2026-05-25
+
+### Behavior Changes
+
+- `verify_result` returns `Ok(false)` instead of `Err("signature R is not in the prime-order subgroup")` for cofactor-mixed signature `R`. The check now runs after the main verification equation as defense-in-depth. Callers matching the exact error string must update; boolean callers are unaffected.
+
+### Performance
+
+- Defer the `R` prime-order subgroup check until after the main verification equation. Cached-`VerifyingKey` rejection of a tampered signature drops from ~3.5 ms to ~2.0 ms (`moon bench --release`); valid-signature verification is unchanged.
+- Skip the first iteration's no-op doublings of identity in `extended_mul_with_window5_table` and `extended_mul_two_with_window5_tables`. Sub-2% standalone effect.
+- Pre-size the window table and digit array with `Array::new(capacity=...)`.
+
+### Refactor
+
+- `decode_prime_order_point` now returns `ExtendedPoint` and shares a new `decode_small_order_check_point` helper with the verify path, removing redundant `extended_from_affine` calls. Public API unchanged.
+
+### Chores
+
+- `wb_hex_value` now `abort`s on invalid input, matching the other hex helpers.
+- Document the rationale for the 1024-byte `sha512_update_chunk_size`.
+
 ## v0.2.1 - 2026-05-21
 
 ### Security
