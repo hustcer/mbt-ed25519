@@ -239,12 +239,17 @@ test "verification rejects non-prime-order signature r" {
     "0000000000000000000000000000000000000000000000000000000000000000",
   )
   let empty : Bytes = b""
+  // s*B - k*A always lies in the prime-order subgroup, so the main
+  // verification rejects a cofactor-mixed R before the defense-in-depth
+  // prime-order check is reached. The R-subgroup error is therefore
+  // mathematically unreachable here and the malformed-input report
+  // collapses into Ok(false).
   assert_false(
     @ed25519.verify(public_key, empty, signature_with_torsion_mixed_r),
   )
   @test.assert_eq(
     @ed25519.verify_result(public_key, empty, signature_with_torsion_mixed_r),
-    Err("signature R is not in the prime-order subgroup"),
+    Ok(false),
   )
 }
 

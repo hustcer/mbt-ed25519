@@ -406,21 +406,34 @@ fn decode_point(bytes : BytesView) -> Result[Point, String] {
 }
 
 ///|
-fn decode_prime_order_point(
+fn decode_small_order_check_point(
   bytes : BytesView,
   name : String,
-) -> Result[Point, String] {
+) -> Result[ExtendedPoint, String] {
   let point = match decode_point(bytes) {
     Err(err) => return Err(err)
     Ok(point) => point
   }
-  if extended_has_small_order(extended_from_affine(point)) {
+  let extended = extended_from_affine(point)
+  if extended_has_small_order(extended) {
     return Err("\{name} has small order")
   }
-  if !extended_has_prime_order(extended_from_affine(point)) {
+  Ok(extended)
+}
+
+///|
+fn decode_prime_order_point(
+  bytes : BytesView,
+  name : String,
+) -> Result[ExtendedPoint, String] {
+  let extended = match decode_small_order_check_point(bytes, name) {
+    Err(err) => return Err(err)
+    Ok(extended) => extended
+  }
+  if !extended_has_prime_order(extended) {
     return Err("\{name} is not in the prime-order subgroup")
   }
-  Ok(point)
+  Ok(extended)
 }
 
 ///|
@@ -482,15 +495,13 @@ pub fn VerifyingKey::from_public_key(
   if public_key.length() != 32 {
     return Err("public key must be 32 bytes")
   }
-  let point = match decode_prime_order_point(public_key, "public key") {
+  let extended = match decode_prime_order_point(public_key, "public key") {
     Err(err) => return Err(err)
-    Ok(point) => point
+    Ok(extended) => extended
   }
   Ok({
     public_key: public_key.to_owned(),
-    neg_public_key_window5_table: extended_window5_table(
-      extended_neg(extended_from_affine(point)),
-    ),
+    neg_public_key_window5_table: extended_window5_table(extended_neg(extended)),
   })
 }
 
@@ -568,11 +579,11 @@ pub fn verify_result(
   }
   let a = match decode_prime_order_point(public_key, "public key") {
     Err(err) => return Err(err)
-    Ok(point) => point
+    Ok(extended) => extended
   }
   verify_with_neg_public_key_table(
     public_key,
-    extended_window5_table(extended_neg(extended_from_affine(a))),
+    extended_window5_table(extended_neg(a)),
     message,
     signature,
   )
@@ -594,9 +605,9 @@ fn verify_with_neg_public_key_table(
   if s >= l {
     return Err("signature S scalar is out of range")
   }
-  let r = match decode_prime_order_point(r_encoded, "signature R") {
+  let r = match decode_small_order_check_point(r_encoded, "signature R") {
     Err(err) => return Err(err)
-    Ok(point) => point
+    Ok(extended) => extended
   }
   let k = modl(
     bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
@@ -604,5 +615,16 @@ fn verify_with_neg_public_key_table(
   let combined = extended_mul_two_with_window5_tables(
     s, base_point_window5_table, k, neg_public_key_window5_table,
   )
-  Ok(extended_equal(combined, extended_from_affine(r)))
+  if !extended_equal(combined, r) {
+    return Ok(false)
+  }
+  // Defense-in-depth: confirm R lies in the prime-order subgroup once the
+  // signature math has accepted it. With a prime-order public key A (enforced
+  // at decode time) s*B - k*A is always in the prime-order subgroup, so a
+  // cofactor-mixed R can never match in practice; the check exists to catch
+  // implementation drift, not to gate the common path.
+  if !extended_has_prime_order(r) {
+    return Err("signature R is not in the prime-order subgroup")
+  }
+  Ok(true)
 }

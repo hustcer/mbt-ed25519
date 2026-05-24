@@ -112,3 +112,24 @@ test "bench: verify OpenSSL Ed25519 signature with cached VerifyingKey" (
   )
   b.bench(fn() { b.keep(verifying_key.verify(message, signature)) })
 }
+
+///|
+test "bench: reject tampered signature with cached VerifyingKey" (b : @bench.T) {
+  let seed = bench_seed()
+  let message = bench_license_payload()
+  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+  let valid = @ed25519.sign(seed, message).unwrap()
+  // Flip a byte inside the S half so canonicity (S < L) still passes but the
+  // main verification equation rejects the signature; this exercises the
+  // invalid-signature fast path that skips the defense-in-depth R subgroup
+  // check.
+  let tampered = Bytes::makei(64, fn(i) {
+    if i == 32 {
+      valid[32] ^ b'\x01'
+    } else {
+      valid[i]
+    }
+  })
+  b.bench(fn() { b.keep(verifying_key.verify(message, tampered)) })
+}
