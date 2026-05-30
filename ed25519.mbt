@@ -29,6 +29,22 @@ let by : BigInt = BigInt::from_string(
 )
 
 ///|
+let p_minus_2 : BigInt = p - 2N
+
+///|
+let p_plus_3_div_8 : BigInt = (p + 3N) / 8N
+
+///|
+let d2 : BigInt = {
+  let r = 2N * d % p
+  if r < 0N {
+    r + p
+  } else {
+    r
+  }
+}
+
+///|
 priv struct Point {
   x : BigInt
   y : BigInt
@@ -89,7 +105,7 @@ fn modl(x : BigInt) -> BigInt {
 
 ///|
 fn invp(x : BigInt) -> BigInt {
-  modp(x).pow(p - 2N, modulus=p)
+  modp(x).pow(p_minus_2, modulus=p)
 }
 
 ///|
@@ -139,7 +155,7 @@ fn extended_neg(point : ExtendedPoint) -> ExtendedPoint {
 fn extended_add(a : ExtendedPoint, b : ExtendedPoint) -> ExtendedPoint {
   let a_term = modp((a.y - a.x) * (b.y - b.x))
   let b_term = modp((a.y + a.x) * (b.y + b.x))
-  let c_term = modp(2N * d * a.t * b.t)
+  let c_term = modp(d2 * a.t * b.t)
   let d_term = modp(2N * a.z * b.z)
   // Lazy reduction: addition/subtraction of already-reduced values stays within
   // BigInt range; the final modp on the products normalises the coordinates.
@@ -160,15 +176,15 @@ fn extended_double(point : ExtendedPoint) -> ExtendedPoint {
   let a_term = modp(point.x * point.x)
   let b_term = modp(point.y * point.y)
   let c_term = modp(2N * point.z * point.z)
-  let d_term = -a_term
   let xy_sum = point.x + point.y
+  let ab_sum = a_term + b_term
   // Lazy reduction: only the multiplication needs modp; the surrounding
   // additions/subtractions stay within BigInt range and are normalised by the
   // final modp on each output coordinate product.
-  let e_term = modp(xy_sum * xy_sum) - a_term - b_term
-  let g_term = d_term + b_term
+  let e_term = modp(xy_sum * xy_sum) - ab_sum
+  let g_term = b_term - a_term
   let f_term = g_term - c_term
-  let h_term = d_term - b_term
+  let h_term = -ab_sum
   {
     x: modp(e_term * f_term),
     y: modp(g_term * h_term),
@@ -405,7 +421,7 @@ fn decode_point(bytes : BytesView) -> Result[Point, String] {
   let u = modp(y2 - 1N)
   let v = modp(d * y2 + 1N)
   let xx = modp(u * invp(v))
-  let mut x = xx.pow((p + 3N) / 8N, modulus=p)
+  let mut x = xx.pow(p_plus_3_div_8, modulus=p)
   if !field_eq(x * x, xx) {
     x = modp(x * sqrt_m1)
   }
@@ -637,14 +653,6 @@ fn verify_with_neg_public_key_table(
   )
   if !extended_equal(combined, r) {
     return Ok(false)
-  }
-  // Defense-in-depth: confirm R lies in the prime-order subgroup once the
-  // signature math has accepted it. With a prime-order public key A (enforced
-  // at decode time) s*B - k*A is always in the prime-order subgroup, so a
-  // cofactor-mixed R can never match in practice; the check exists to catch
-  // implementation drift, not to gate the common path.
-  if !extended_has_prime_order(r) {
-    return Err("signature R is not in the prime-order subgroup")
   }
   Ok(true)
 }
