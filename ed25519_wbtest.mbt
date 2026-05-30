@@ -204,3 +204,85 @@ test "scalar_window5_digits roundtrip on representative scalars" {
     @test.assert_eq(reassemble_window5(scalar_window5_digits(s)), s)
   }
 }
+
+///|
+test "lazy reduction: extended_double equals extended_add with same point" {
+  let bp = base_point()
+  let doubled = extended_double(bp)
+  let added = extended_add(bp, bp)
+  @test.assert_eq(encode_extended_point(doubled), encode_extended_point(added))
+}
+
+///|
+test "lazy reduction: double-add chain consistency" {
+  // Verify 2*P == P+P for multiple successive doubles along the curve,
+  // exercising lazy reduction with progressively different coordinate values
+  // that include negative intermediate terms.
+  let bp = base_point()
+  let mut point = bp
+  for _ in 0..<5 {
+    let doubled = extended_double(point)
+    let added = extended_add(point, point)
+    @test.assert_eq(
+      encode_extended_point(doubled),
+      encode_extended_point(added),
+    )
+    point = doubled
+  }
+}
+
+///|
+test "lazy reduction: add commutativity and associativity" {
+  let bp = base_point()
+  let p2 = extended_double(bp)
+  // Commutativity: B + 2B == 2B + B
+  @test.assert_eq(
+    encode_extended_point(extended_add(bp, p2)),
+    encode_extended_point(extended_add(p2, bp)),
+  )
+  // Associativity: (B + B) + B == B + (B + B)
+  let lhs = extended_add(extended_add(bp, bp), bp)
+  let rhs = extended_add(bp, extended_add(bp, bp))
+  @test.assert_eq(encode_extended_point(lhs), encode_extended_point(rhs))
+}
+
+///|
+test "lazy reduction: encode-decode roundtrip after repeated operations" {
+  // Build 5*B via add chain, encode, decode, re-encode and compare.
+  // This catches any reduction error that would produce a non-canonical or
+  // wrong point encoding.
+  let bp = base_point()
+  let p5 = extended_add(extended_double(extended_double(bp)), bp)
+  let encoded = encode_extended_point(p5)
+  let decoded = decode_point(encoded).unwrap()
+  let re_extended = extended_from_affine(decoded)
+  @test.assert_eq(encode_extended_point(re_extended), encoded)
+}
+
+///|
+test "sha512 buffer reuse: exact chunk-size multiple and single byte" {
+  // Exact multiple of chunk size — every chunk is full, clear() path exercised
+  let exact = Bytes::makei(sha512_update_chunk_size * 2, fn(i) {
+    ((i * 7 + 13) % 256).to_byte()
+  })
+  @test.assert_eq(sha512(exact), direct_sha512_concat3(exact, b"", b""))
+  // Single byte — shorter than one chunk, buffer reused after a single clear
+  let single : Bytes = b"\x42"
+  @test.assert_eq(sha512(single), direct_sha512_concat3(single, b"", b""))
+}
+
+///|
+test "sha512 buffer reuse: concat with mixed chunk-aligned sizes" {
+  // One input exactly one chunk, another straddling a chunk boundary —
+  // verifies buffer is correctly cleared between sha512_update_bytes calls.
+  let aligned = Bytes::makei(sha512_update_chunk_size, fn(i) {
+    ((i + 3) % 256).to_byte()
+  })
+  let straddling = Bytes::makei(sha512_update_chunk_size + 1, fn(i) {
+    ((i * 11 + 5) % 256).to_byte()
+  })
+  @test.assert_eq(
+    sha512_concat2(aligned, straddling),
+    direct_sha512_concat3(aligned, straddling, b""),
+  )
+}

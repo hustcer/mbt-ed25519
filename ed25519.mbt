@@ -141,10 +141,12 @@ fn extended_add(a : ExtendedPoint, b : ExtendedPoint) -> ExtendedPoint {
   let b_term = modp((a.y + a.x) * (b.y + b.x))
   let c_term = modp(2N * d * a.t * b.t)
   let d_term = modp(2N * a.z * b.z)
-  let e_term = modp(b_term - a_term)
-  let f_term = modp(d_term - c_term)
-  let g_term = modp(d_term + c_term)
-  let h_term = modp(b_term + a_term)
+  // Lazy reduction: addition/subtraction of already-reduced values stays within
+  // BigInt range; the final modp on the products normalises the coordinates.
+  let e_term = b_term - a_term
+  let f_term = d_term - c_term
+  let g_term = d_term + c_term
+  let h_term = b_term + a_term
   {
     x: modp(e_term * f_term),
     y: modp(g_term * h_term),
@@ -158,11 +160,15 @@ fn extended_double(point : ExtendedPoint) -> ExtendedPoint {
   let a_term = modp(point.x * point.x)
   let b_term = modp(point.y * point.y)
   let c_term = modp(2N * point.z * point.z)
-  let d_term = modp(-a_term)
-  let e_term = modp((point.x + point.y) * (point.x + point.y) - a_term - b_term)
-  let g_term = modp(d_term + b_term)
-  let f_term = modp(g_term - c_term)
-  let h_term = modp(d_term - b_term)
+  let d_term = -a_term
+  let xy_sum = point.x + point.y
+  // Lazy reduction: only the multiplication needs modp; the surrounding
+  // additions/subtractions stay within BigInt range and are normalised by the
+  // final modp on each output coordinate product.
+  let e_term = modp(xy_sum * xy_sum) - a_term - b_term
+  let g_term = d_term + b_term
+  let f_term = g_term - c_term
+  let h_term = d_term - b_term
   {
     x: modp(e_term * f_term),
     y: modp(g_term * h_term),
@@ -304,13 +310,16 @@ let sha512_update_chunk_size : Int = 1024
 ///|
 fn sha512_update_bytes(sha : @sha2.Sha512, bytes : BytesView) -> Unit {
   let mut offset = 0
+  // Allocate the conversion buffer once and reuse it across chunks to reduce
+  // GC pressure on long inputs.
+  let chunk : Array[UInt] = Array::new(capacity=sha512_update_chunk_size)
   while offset < bytes.length() {
     let end = if offset + sha512_update_chunk_size < bytes.length() {
       offset + sha512_update_chunk_size
     } else {
       bytes.length()
     }
-    let chunk : Array[UInt] = Array::new(capacity=end - offset)
+    chunk.clear()
     for i in offset..<end {
       chunk.push(bytes[i].to_uint())
     }

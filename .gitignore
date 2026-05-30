@@ -3,6 +3,7 @@ _build/
 target/
 .moon/
 .mooncakes/
+.antigravitycli/
 *.wasm
 *.wat
 findings.md
