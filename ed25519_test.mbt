@@ -319,6 +319,20 @@ test "malformed inputs return errors" {
     @ed25519.verify_result(empty, empty, empty),
     Err("public key must be 32 bytes"),
   )
+  // Non-empty but wrong-length public keys hit the same unified length check
+  // in both the one-shot and the cached-key constructors.
+  let short_key = Bytes::makei(31, fn(_) { b'\x01' })
+  let long_key = Bytes::makei(33, fn(_) { b'\x01' })
+  @test.assert_eq(
+    @ed25519.verify_result(short_key, empty, empty),
+    Err("public key must be 32 bytes"),
+  )
+  @test.assert_eq(
+    @ed25519.verify_result(long_key, empty, empty),
+    Err("public key must be 32 bytes"),
+  )
+  assert_verifying_key_error(short_key, "public key must be 32 bytes")
+  assert_verifying_key_error(long_key, "public key must be 32 bytes")
 }
 
 ///|

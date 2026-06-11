@@ -35,14 +35,9 @@ let p_minus_2 : BigInt = p - 2N
 let p_minus_5_div_8 : BigInt = (p - 5N) / 8N
 
 ///|
-let d2 : BigInt = {
-  let r = 2N * d % p
-  if r < 0N {
-    r + p
-  } else {
-    r
-  }
-}
+/// 2*d mod p; both operands are positive so no negative-remainder fixup is
+/// needed (MoonBit % takes the dividend's sign).
+let d2 : BigInt = 2N * d % p
 
 ///|
 priv struct Point {
@@ -206,12 +201,22 @@ fn extended_window5_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
 }
 
 ///|
+/// Split a scalar into 51 fixed 5-bit windows covering exactly 255 bits.
+/// Callers must pass 0 <= s < 2^255: clamped secrets (< 2^255) and mod-l
+/// scalars (< 2^253) both fit. Anything outside that range would silently
+/// lose its high bits or produce out-of-range digits, so abort instead.
 fn scalar_window5_digits(s : BigInt) -> Array[Int] {
+  if s < 0N {
+    abort("scalar_window5_digits: scalar must be non-negative")
+  }
   let digits : Array[Int] = Array::new(capacity=51)
   let mut n = s
   for _ in 0..<51 {
     digits.push((n % 32N).to_int())
     n = n / 32N
+  }
+  if n != 0N {
+    abort("scalar_window5_digits: scalar exceeds 255 bits")
   }
   digits
 }
@@ -467,11 +472,15 @@ fn decode_small_order_check_point(
 /// Decode a public key point and return the window table of its negation for
 /// the verification equation. Building the -A table first lets the prime-order
 /// check reuse it (l*(-A) == identity iff l*A == identity), so key setup
-/// constructs one window table instead of two.
+/// constructs one window table instead of two. The length check lives here so
+/// both callers report the same "\{name} must be 32 bytes" error.
 fn decode_neg_prime_order_window5_table(
   bytes : BytesView,
   name : String,
 ) -> Result[Array[ExtendedPoint], String] {
+  if bytes.length() != 32 {
+    return Err("\{name} must be 32 bytes")
+  }
   let extended = match decode_small_order_check_point(bytes, name) {
     Err(err) => return Err(err)
     Ok(extended) => extended
@@ -555,9 +564,6 @@ pub fn SigningKey::verifying_key(self : SigningKey) -> VerifyingKey {
 pub fn VerifyingKey::from_public_key(
   public_key : BytesView,
 ) -> Result[VerifyingKey, String] {
-  if public_key.length() != 32 {
-    return Err("public key must be 32 bytes")
-  }
   let neg_table = match
     decode_neg_prime_order_window5_table(public_key, "public key") {
     Err(err) => return Err(err)
@@ -638,9 +644,6 @@ pub fn verify_result(
   message : BytesView,
   signature : BytesView,
 ) -> Result[Bool, String] {
-  if public_key.length() != 32 {
-    return Err("public key must be 32 bytes")
-  }
   let neg_table = match
     decode_neg_prime_order_window5_table(public_key, "public key") {
     Err(err) => return Err(err)
@@ -675,8 +678,5 @@ fn verify_with_neg_public_key_table(
   let combined = extended_mul_two_with_window5_tables(
     s, base_point_window5_table, k, neg_public_key_window5_table,
   )
-  if !extended_equal(combined, r) {
-    return Ok(false)
-  }
-  Ok(true)
+  Ok(extended_equal(combined, r))
 }

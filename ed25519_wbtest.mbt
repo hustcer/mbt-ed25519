@@ -211,6 +211,22 @@ test "scalar_window5_digits boundary digits" {
   for i in 0..<50 {
     @test.assert_eq(top[i], 0)
   }
+  // 2^255 - 1 is the largest accepted scalar: every window saturates at 31.
+  let max = scalar_window5_digits((BigInt::from_int(1) << 255) - 1N)
+  @test.assert_eq(max.length(), 51)
+  for d in max {
+    @test.assert_eq(d, 31)
+  }
+}
+
+///|
+test "panic scalar_window5_digits rejects negative scalars" {
+  ignore(scalar_window5_digits(-1N))
+}
+
+///|
+test "panic scalar_window5_digits rejects scalars of 256 bits" {
+  ignore(scalar_window5_digits(BigInt::from_int(1) << 255))
 }
 
 ///|
