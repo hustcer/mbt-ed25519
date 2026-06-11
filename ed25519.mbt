@@ -138,12 +138,10 @@ fn extended_has_small_order(point : ExtendedPoint) -> Bool {
 }
 
 ///|
-fn extended_has_prime_order(point : ExtendedPoint) -> Bool {
-  let product = extended_mul_with_window5_table(
-    l,
-    extended_window5_table(point),
-  )
-  extended_equal(product, extended_identity())
+/// A point and its negation have the same order, so this check accepts the
+/// window table of either P or -P.
+fn window5_table_has_prime_order(table : Array[ExtendedPoint]) -> Bool {
+  extended_equal(extended_mul_with_window5_table(l, table), extended_identity())
 }
 
 ///|
@@ -462,18 +460,23 @@ fn decode_small_order_check_point(
 }
 
 ///|
-fn decode_prime_order_point(
+/// Decode a public key point and return the window table of its negation for
+/// the verification equation. Building the -A table first lets the prime-order
+/// check reuse it (l*(-A) == identity iff l*A == identity), so key setup
+/// constructs one window table instead of two.
+fn decode_neg_prime_order_window5_table(
   bytes : BytesView,
   name : String,
-) -> Result[ExtendedPoint, String] {
+) -> Result[Array[ExtendedPoint], String] {
   let extended = match decode_small_order_check_point(bytes, name) {
     Err(err) => return Err(err)
     Ok(extended) => extended
   }
-  if !extended_has_prime_order(extended) {
+  let neg_table = extended_window5_table(extended_neg(extended))
+  if !window5_table_has_prime_order(neg_table) {
     return Err("\{name} is not in the prime-order subgroup")
   }
-  Ok(extended)
+  Ok(neg_table)
 }
 
 ///|
@@ -535,13 +538,14 @@ pub fn VerifyingKey::from_public_key(
   if public_key.length() != 32 {
     return Err("public key must be 32 bytes")
   }
-  let extended = match decode_prime_order_point(public_key, "public key") {
+  let neg_table = match
+    decode_neg_prime_order_window5_table(public_key, "public key") {
     Err(err) => return Err(err)
-    Ok(extended) => extended
+    Ok(table) => table
   }
   Ok({
     public_key: public_key.to_owned(),
-    neg_public_key_window5_table: extended_window5_table(extended_neg(extended)),
+    neg_public_key_window5_table: neg_table,
   })
 }
 
@@ -617,16 +621,12 @@ pub fn verify_result(
   if public_key.length() != 32 {
     return Err("public key must be 32 bytes")
   }
-  let a = match decode_prime_order_point(public_key, "public key") {
+  let neg_table = match
+    decode_neg_prime_order_window5_table(public_key, "public key") {
     Err(err) => return Err(err)
-    Ok(extended) => extended
+    Ok(table) => table
   }
-  verify_with_neg_public_key_table(
-    public_key,
-    extended_window5_table(extended_neg(a)),
-    message,
-    signature,
-  )
+  verify_with_neg_public_key_table(public_key, neg_table, message, signature)
 }
 
 ///|

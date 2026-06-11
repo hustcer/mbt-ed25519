@@ -112,13 +112,20 @@ test "windowed scalar multiplication handles identity and base point" {
 }
 
 ///|
+/// White-box stand-in for the removed package-level wrapper: the production
+/// path checks prime order on a window table directly.
+fn wb_extended_has_prime_order(point : ExtendedPoint) -> Bool {
+  window5_table_has_prime_order(extended_window5_table(point))
+}
+
+///|
 test "prime-order check accepts base point and RFC8032 public key" {
-  assert_true(extended_has_prime_order(base_point()))
+  assert_true(wb_extended_has_prime_order(base_point()))
   let rfc_public_key = wb_hex(
     "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
   )
   let point = decode_point(rfc_public_key).unwrap()
-  assert_true(extended_has_prime_order(extended_from_affine(point)))
+  assert_true(wb_extended_has_prime_order(extended_from_affine(point)))
 }
 
 ///|
@@ -128,7 +135,26 @@ test "prime-order check rejects torsion coset without small order" {
   )
   let extended = extended_from_affine(decode_point(torsion_mixed).unwrap())
   assert_false(extended_has_small_order(extended))
-  assert_false(extended_has_prime_order(extended))
+  assert_false(wb_extended_has_prime_order(extended))
+}
+
+///|
+test "prime-order check matches on negated-point tables" {
+  // The verify path checks prime order on the table of -A; confirm the check
+  // agrees between a point's table and its negation's table.
+  let bp = base_point()
+  assert_true(window5_table_has_prime_order(extended_window5_table(bp)))
+  assert_true(
+    window5_table_has_prime_order(extended_window5_table(extended_neg(bp))),
+  )
+  let torsion_mixed = wb_hex(
+    "5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea",
+  )
+  let mixed = extended_from_affine(decode_point(torsion_mixed).unwrap())
+  assert_false(window5_table_has_prime_order(extended_window5_table(mixed)))
+  assert_false(
+    window5_table_has_prime_order(extended_window5_table(extended_neg(mixed))),
+  )
 }
 
 ///|
