@@ -320,6 +320,16 @@ test "malformed point encodings return errors" {
     @ed25519.verify_result(public_key, empty, signature_with_invalid_r),
     Err("encoded point y coordinate is out of range"),
   )
+  // y = 2 is canonical but (y^2 - 1) / (1 + d*y^2) is a non-residue, so no x
+  // satisfies the curve equation: exercises the square-root rejection branch.
+  let y_not_on_curve = hex(
+    "0200000000000000000000000000000000000000000000000000000000000000",
+  )
+  @test.assert_eq(
+    @ed25519.verify_result(y_not_on_curve, empty, valid_signature),
+    Err("encoded point is not on Ed25519"),
+  )
+  assert_verifying_key_error(y_not_on_curve, "encoded point is not on Ed25519")
 }
 
 ///|

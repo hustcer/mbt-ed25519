@@ -32,7 +32,7 @@ let by : BigInt = BigInt::from_string(
 let p_minus_2 : BigInt = p - 2N
 
 ///|
-let p_plus_3_div_8 : BigInt = (p + 3N) / 8N
+let p_minus_5_div_8 : BigInt = (p - 5N) / 8N
 
 ///|
 let d2 : BigInt = {
@@ -420,16 +420,20 @@ fn decode_point(bytes : BytesView) -> Result[Point, String] {
   let y2 = modp(y * y)
   let u = modp(y2 - 1N)
   let v = modp(d * y2 + 1N)
-  let xx = modp(u * invp(v))
-  let mut x = xx.pow(p_plus_3_div_8, modulus=p)
-  if !field_eq(x * x, xx) {
+  // Single-exponentiation square root (RFC 8032, section 5.1.3): the candidate
+  // root of u/v is x = u * v^3 * (u*v^7)^((p-5)/8), replacing the previous
+  // invp(v) + pow((p+3)/8) pair of ~255-bit modular exponentiations with one.
+  let v3 = modp(v * v * v)
+  let v7 = modp(v3 * v3 * v)
+  let mut x = modp(u * v3 * modp(u * v7).pow(p_minus_5_div_8, modulus=p))
+  // v*x^2 == u is the curve equation rearranged (y^2 - 1 == x^2 * (1 + d*y^2)),
+  // so this check also rejects v == 0 without relying on invp(0) returning 0.
+  let vxx = modp(v * x * x)
+  if vxx != u {
+    if vxx != modp(p - u) {
+      return Err("encoded point is not on Ed25519")
+    }
     x = modp(x * sqrt_m1)
-  }
-  // Verify the curve equation -x^2 + y^2 == 1 + d*x^2*y^2 directly so the
-  // result does not silently rely on `invp(0)` returning 0 when v == 0.
-  let x2 = modp(x * x)
-  if !field_eq(modp(y2 - x2), modp(1N + d * x2 * y2)) {
-    return Err("encoded point is not on Ed25519")
   }
   if (x % 2N == 1N) != (sign == b'\x01') {
     x = modp(p - x)
