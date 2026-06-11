@@ -273,6 +273,33 @@ test "openssl interop: verifies external Ed25519 signature" {
 }
 
 ///|
+test "SigningKey::verifying_key matches VerifyingKey::from_public_key" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let message : Bytes = b"license"
+  let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
+  let verifying_key = signing_key.verifying_key()
+  @test.assert_eq(verifying_key.public_key(), signing_key.public_key())
+  let signature = signing_key.sign(message)
+  assert_true(verifying_key.verify(message, signature))
+  @test.assert_eq(verifying_key.verify_result(message, signature), Ok(true))
+  // Rejects a different message and a tampered signature, like a key built
+  // through the decoding path.
+  assert_false(verifying_key.verify(b"licensf", signature))
+  let tampered = with_byte_replaced(signature, 5, signature[5] ^ b'\x01')
+  assert_false(verifying_key.verify(message, tampered))
+  // Behaves identically to the key reconstructed from the encoded public key.
+  let decoded_key = @ed25519.VerifyingKey::from_public_key(
+    signing_key.public_key(),
+  ).unwrap()
+  @test.assert_eq(
+    decoded_key.verify_result(message, signature),
+    verifying_key.verify_result(message, signature),
+  )
+}
+
+///|
 test "malformed inputs return errors" {
   let empty : Bytes = b""
   @test.assert_eq(

@@ -19,6 +19,7 @@ pub struct SigningKey {
 pub fn SigningKey::from_seed(BytesView) -> Result[Self, String]
 pub fn SigningKey::public_key(Self) -> Bytes
 pub fn SigningKey::sign(Self, BytesView) -> Bytes
+pub fn SigningKey::verifying_key(Self) -> VerifyingKey
 
 pub struct VerifyingKey {
   // private fields

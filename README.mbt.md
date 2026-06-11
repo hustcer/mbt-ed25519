@@ -46,6 +46,7 @@ pub struct SigningKey
 pub fn SigningKey::from_seed(BytesView) -> Result[SigningKey, String]
 pub fn SigningKey::public_key(SigningKey) -> Bytes
 pub fn SigningKey::sign(SigningKey, BytesView) -> Bytes
+pub fn SigningKey::verifying_key(SigningKey) -> VerifyingKey
 
 pub struct VerifyingKey
 pub fn VerifyingKey::from_public_key(BytesView) -> Result[VerifyingKey, String]
@@ -118,6 +119,16 @@ let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
 
 ///|
 let ok = verifying_key.verify(message, signature)
+```
+
+When you hold the `SigningKey`, derive its `VerifyingKey` directly instead of
+re-decoding the encoded public key. The signing key already validated its own
+public point, so this constructor is infallible and skips the point decode and
+prime-order subgroup check:
+
+```moonbit nocheck
+///|
+let verifying_key = signing_key.verifying_key()
 ```
 
 ## Implementation Notes

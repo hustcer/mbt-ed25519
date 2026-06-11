@@ -64,6 +64,10 @@ pub struct SigningKey {
   priv a : BigInt
   priv prefix : Bytes
   priv public_key : Bytes
+  // The public point a*B in extended coordinates, retained from key
+  // derivation so verifying_key() can build its table without re-decoding
+  // and re-validating the encoded public key.
+  priv public_point : ExtendedPoint
 }
 
 ///|
@@ -512,8 +516,9 @@ pub fn SigningKey::from_seed(seed : BytesView) -> Result[SigningKey, String] {
   match expanded_secret(seed) {
     Err(err) => Err(err)
     Ok((a, prefix)) => {
-      let public_key = encode_extended_point(base_point_mul(a))
-      Ok({ a, prefix, public_key })
+      let public_point = base_point_mul(a)
+      let public_key = encode_extended_point(public_point)
+      Ok({ a, prefix, public_key, public_point })
     }
   }
 }
@@ -528,6 +533,21 @@ pub fn SigningKey::public_key(self : SigningKey) -> Bytes {
 /// Sign a message with a pre-expanded Ed25519 signing key.
 pub fn SigningKey::sign(self : SigningKey, message : BytesView) -> Bytes {
   sign_with_expanded_key(self.a, self.prefix, self.public_key, message)
+}
+
+///|
+/// Create the matching verifying key without decoding or re-validating the
+/// public key. The signing key's public point a*B is in the prime-order
+/// subgroup by construction, so this is infallible and skips the point
+/// decode (one modular exponentiation) and the prime-order subgroup check
+/// (one scalar multiplication) that `VerifyingKey::from_public_key` performs.
+pub fn SigningKey::verifying_key(self : SigningKey) -> VerifyingKey {
+  {
+    public_key: self.public_key,
+    neg_public_key_window5_table: extended_window5_table(
+      extended_neg(self.public_point),
+    ),
+  }
 }
 
 ///|
