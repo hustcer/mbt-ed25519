@@ -1,22 +1,39 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "hustcer/ed25519"
 
-// Values
-pub fn derive_public_key(BytesView) -> Result[Bytes, String]
+import {
+  "moonbitlang/core/debug",
+}
 
-pub fn sign(BytesView, BytesView) -> Result[Bytes, String]
+// Values
+pub fn derive_public_key(BytesView) -> Bytes raise Ed25519Error
+
+pub fn sign(BytesView, BytesView) -> Bytes raise Ed25519Error
 
 pub fn verify(BytesView, BytesView, BytesView) -> Bool
 
-pub fn verify_result(BytesView, BytesView, BytesView) -> Result[Bool, String]
+pub fn verify_result(BytesView, BytesView, BytesView) -> Bool raise Ed25519Error
 
 // Errors
+pub(all) suberror Ed25519Error {
+  InvalidSeedLength(got~ : Int)
+  InvalidPublicKeyLength(got~ : Int)
+  InvalidSignatureLength(got~ : Int)
+  PointYOutOfRange
+  PointNotOnCurve
+  PointNotCanonical
+  PublicKeySmallOrder
+  SignatureRSmallOrder
+  PublicKeyNotPrimeOrder
+  SignatureSOutOfRange
+} derive(Eq, @debug.Debug)
+pub impl Show for Ed25519Error
 
 // Types and methods
 pub struct SigningKey {
   // private fields
 }
-pub fn SigningKey::from_seed(BytesView) -> Result[Self, String]
+pub fn SigningKey::from_seed(BytesView) -> Self raise Ed25519Error
 pub fn SigningKey::public_key(Self) -> Bytes
 pub fn SigningKey::sign(Self, BytesView) -> Bytes
 pub fn SigningKey::verifying_key(Self) -> VerifyingKey
@@ -24,10 +41,10 @@ pub fn SigningKey::verifying_key(Self) -> VerifyingKey
 pub struct VerifyingKey {
   // private fields
 }
-pub fn VerifyingKey::from_public_key(BytesView) -> Result[Self, String]
+pub fn VerifyingKey::from_public_key(BytesView) -> Self raise Ed25519Error
 pub fn VerifyingKey::public_key(Self) -> Bytes
 pub fn VerifyingKey::verify(Self, BytesView, BytesView) -> Bool
-pub fn VerifyingKey::verify_result(Self, BytesView, BytesView) -> Result[Bool, String]
+pub fn VerifyingKey::verify_result(Self, BytesView, BytesView) -> Bool raise Ed25519Error
 
 // Type aliases
 

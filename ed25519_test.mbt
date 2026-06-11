@@ -35,14 +35,39 @@ fn with_byte_replaced(bytes : Bytes, index : Int, value : Byte) -> Bytes {
 }
 
 ///|
+/// Assert that `run` raises exactly `expected`; fail if it succeeds or raises
+/// a different variant.
+fn assert_ed25519_error(
+  expected : @ed25519.Ed25519Error,
+  run : () -> Unit raise @ed25519.Ed25519Error,
+) -> Unit raise {
+  try run() catch {
+    err => @test.assert_eq(err, expected)
+  } noraise {
+    _ => fail("expected the call to raise \{expected}")
+  }
+}
+
+///|
 fn assert_verifying_key_error(
   public_key : Bytes,
-  expected : String,
+  expected : @ed25519.Ed25519Error,
 ) -> Unit raise {
-  match @ed25519.VerifyingKey::from_public_key(public_key) {
-    Err(message) => @test.assert_eq(message, expected)
-    Ok(_) => abort("expected invalid public key to fail")
-  }
+  assert_ed25519_error(expected, () => {
+    ignore(@ed25519.VerifyingKey::from_public_key(public_key))
+  })
+}
+
+///|
+fn assert_verify_error(
+  public_key : Bytes,
+  message : Bytes,
+  signature : Bytes,
+  expected : @ed25519.Ed25519Error,
+) -> Unit raise {
+  assert_ed25519_error(expected, () => {
+    ignore(@ed25519.verify_result(public_key, message, signature))
+  })
 }
 
 ///|
@@ -58,9 +83,9 @@ test "rfc8032 vector 1: empty message" {
     "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
   )
   let empty : Bytes = b""
-  @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  @test.assert_eq(@ed25519.sign(seed, empty), Ok(signature))
-  let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
+  @test.assert_eq(@ed25519.derive_public_key(seed), public_key)
+  @test.assert_eq(@ed25519.sign(seed, empty), signature)
+  let signing_key = @ed25519.SigningKey::from_seed(seed)
   @test.assert_eq(signing_key.public_key(), public_key)
   @test.assert_eq(signing_key.sign(empty), signature)
   assert_true(@ed25519.verify(public_key, empty, signature))
@@ -79,8 +104,8 @@ test "rfc8032 vector 2: one byte message" {
     "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da" +
     "085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
   )
-  @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  @test.assert_eq(@ed25519.sign(seed, message), Ok(signature))
+  @test.assert_eq(@ed25519.derive_public_key(seed), public_key)
+  @test.assert_eq(@ed25519.sign(seed, message), signature)
   assert_true(@ed25519.verify(public_key, message, signature))
 }
 
@@ -97,8 +122,8 @@ test "rfc8032 vector 3: two byte message" {
     "6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac" +
     "18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a",
   )
-  @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  @test.assert_eq(@ed25519.sign(seed, message), Ok(signature))
+  @test.assert_eq(@ed25519.derive_public_key(seed), public_key)
+  @test.assert_eq(@ed25519.sign(seed, message), signature)
   assert_true(@ed25519.verify(public_key, message, signature))
 }
 
@@ -107,9 +132,9 @@ test "verification rejects tampered message and signature" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let message = hex("73656c662d6c6963656e7365")
-  let signature = @ed25519.sign(seed, message).unwrap()
+  let signature = @ed25519.sign(seed, message)
   let tampered_message = hex("73656c662d6c6963656e7364")
   assert_false(@ed25519.verify(public_key, tampered_message, signature))
   let tampered_signature = with_byte_replaced(
@@ -125,9 +150,9 @@ test "verification rejects non-canonical s scalar" {
   let seed = hex(
     "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let message = hex("72")
-  let signature = @ed25519.sign(seed, message).unwrap()
+  let signature = @ed25519.sign(seed, message)
   let non_canonical_s = hex(
     "edd3f55c1a631258d69cf7a2def9de1400000000000000000000000000000010",
   )
@@ -139,10 +164,7 @@ test "verification rejects non-canonical s scalar" {
     }
   })
   assert_false(@ed25519.verify(public_key, message, tampered))
-  @test.assert_eq(
-    @ed25519.verify_result(public_key, message, tampered),
-    Err("signature S scalar is out of range"),
-  )
+  assert_verify_error(public_key, message, tampered, SignatureSOutOfRange)
 }
 
 ///|
@@ -156,11 +178,13 @@ test "verification rejects small-order public keys" {
     "0100000000000000000000000000000000000000000000000000000000000000",
   )
   assert_false(@ed25519.verify(identity_public_key, message, forged_signature))
-  @test.assert_eq(
-    @ed25519.verify_result(identity_public_key, message, forged_signature),
-    Err("public key has small order"),
+  assert_verify_error(
+    identity_public_key,
+    message,
+    forged_signature,
+    PublicKeySmallOrder,
   )
-  assert_verifying_key_error(identity_public_key, "public key has small order")
+  assert_verifying_key_error(identity_public_key, PublicKeySmallOrder)
 }
 
 ///|
@@ -177,13 +201,13 @@ test "verification rejects non-prime-order public keys" {
   assert_false(
     @ed25519.verify(torsion_mixed_public_key, message, forged_signature),
   )
-  @test.assert_eq(
-    @ed25519.verify_result(torsion_mixed_public_key, message, forged_signature),
-    Err("public key is not in the prime-order subgroup"),
+  assert_verify_error(
+    torsion_mixed_public_key,
+    message,
+    forged_signature,
+    PublicKeyNotPrimeOrder,
   )
-  assert_verifying_key_error(
-    torsion_mixed_public_key, "public key is not in the prime-order subgroup",
-  )
+  assert_verifying_key_error(torsion_mixed_public_key, PublicKeyNotPrimeOrder)
 }
 
 ///|
@@ -199,15 +223,13 @@ test "verification rejects non-canonical identity encoding" {
   assert_false(
     @ed25519.verify(non_canonical_identity, single_byte_msg, forged_signature),
   )
-  @test.assert_eq(
-    @ed25519.verify_result(
-      non_canonical_identity, single_byte_msg, forged_signature,
-    ),
-    Err("encoded point is not canonical"),
+  assert_verify_error(
+    non_canonical_identity,
+    single_byte_msg,
+    forged_signature,
+    PointNotCanonical,
   )
-  assert_verifying_key_error(
-    non_canonical_identity, "encoded point is not canonical",
-  )
+  assert_verifying_key_error(non_canonical_identity, PointNotCanonical)
 }
 
 ///|
@@ -215,16 +237,18 @@ test "verification rejects small-order signature r" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let signature_with_identity_r = hex(
     "0100000000000000000000000000000000000000000000000000000000000000" +
     "0000000000000000000000000000000000000000000000000000000000000000",
   )
   let empty : Bytes = b""
   assert_false(@ed25519.verify(public_key, empty, signature_with_identity_r))
-  @test.assert_eq(
-    @ed25519.verify_result(public_key, empty, signature_with_identity_r),
-    Err("signature R has small order"),
+  assert_verify_error(
+    public_key,
+    empty,
+    signature_with_identity_r,
+    SignatureRSmallOrder,
   )
 }
 
@@ -233,7 +257,7 @@ test "verification rejects non-prime-order signature r" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let signature_with_torsion_mixed_r = hex(
     "5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea" +
     "0000000000000000000000000000000000000000000000000000000000000000",
@@ -243,13 +267,12 @@ test "verification rejects non-prime-order signature r" {
   // verification rejects a cofactor-mixed R before the defense-in-depth
   // prime-order check is reached. The R-subgroup error is therefore
   // mathematically unreachable here and the malformed-input report
-  // collapses into Ok(false).
+  // collapses into a plain false.
   assert_false(
     @ed25519.verify(public_key, empty, signature_with_torsion_mixed_r),
   )
-  @test.assert_eq(
+  assert_false(
     @ed25519.verify_result(public_key, empty, signature_with_torsion_mixed_r),
-    Ok(false),
   )
 }
 
@@ -267,7 +290,7 @@ test "openssl interop: verifies external Ed25519 signature" {
     "b2ae98c9489542ed6cd33a5cd65c6cfb10af7310afb400ea392992c263cf2400",
   )
   assert_true(@ed25519.verify(public_key, message, signature))
-  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key)
   @test.assert_eq(verifying_key.public_key(), public_key)
   assert_true(verifying_key.verify(message, signature))
 }
@@ -278,12 +301,12 @@ test "SigningKey::verifying_key matches VerifyingKey::from_public_key" {
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
   let message : Bytes = b"license"
-  let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
+  let signing_key = @ed25519.SigningKey::from_seed(seed)
   let verifying_key = signing_key.verifying_key()
   @test.assert_eq(verifying_key.public_key(), signing_key.public_key())
   let signature = signing_key.sign(message)
   assert_true(verifying_key.verify(message, signature))
-  @test.assert_eq(verifying_key.verify_result(message, signature), Ok(true))
+  assert_true(verifying_key.verify_result(message, signature))
   // Rejects a different message and a tampered signature, like a key built
   // through the decoding path.
   assert_false(verifying_key.verify(b"licensf", signature))
@@ -292,7 +315,7 @@ test "SigningKey::verifying_key matches VerifyingKey::from_public_key" {
   // Behaves identically to the key reconstructed from the encoded public key.
   let decoded_key = @ed25519.VerifyingKey::from_public_key(
     signing_key.public_key(),
-  ).unwrap()
+  )
   @test.assert_eq(
     decoded_key.verify_result(message, signature),
     verifying_key.verify_result(message, signature),
@@ -300,77 +323,106 @@ test "SigningKey::verifying_key matches VerifyingKey::from_public_key" {
 }
 
 ///|
-test "malformed inputs return errors" {
+test "malformed inputs raise errors" {
   let empty : Bytes = b""
-  @test.assert_eq(
-    @ed25519.derive_public_key(empty),
-    Err("seed must be 32 bytes"),
-  )
-  match @ed25519.SigningKey::from_seed(empty) {
-    Err(message) => @test.assert_eq(message, "seed must be 32 bytes")
-    Ok(_) => abort("expected invalid seed to fail")
-  }
-  match @ed25519.VerifyingKey::from_public_key(empty) {
-    Err(message) => @test.assert_eq(message, "public key must be 32 bytes")
-    Ok(_) => abort("expected invalid public key to fail")
-  }
-  @test.assert_eq(@ed25519.sign(empty, empty), Err("seed must be 32 bytes"))
-  @test.assert_eq(
-    @ed25519.verify_result(empty, empty, empty),
-    Err("public key must be 32 bytes"),
-  )
+  assert_ed25519_error(InvalidSeedLength(got=0), () => {
+    ignore(@ed25519.derive_public_key(empty))
+  })
+  assert_ed25519_error(InvalidSeedLength(got=0), () => {
+    ignore(@ed25519.SigningKey::from_seed(empty))
+  })
+  assert_ed25519_error(InvalidSeedLength(got=0), () => {
+    ignore(@ed25519.sign(empty, empty))
+  })
+  assert_verifying_key_error(empty, InvalidPublicKeyLength(got=0))
+  assert_verify_error(empty, empty, empty, InvalidPublicKeyLength(got=0))
   // Non-empty but wrong-length public keys hit the same unified length check
-  // in both the one-shot and the cached-key constructors.
+  // in both the one-shot and the cached-key constructors; the error carries
+  // the actual length.
   let short_key = Bytes::makei(31, fn(_) { b'\x01' })
   let long_key = Bytes::makei(33, fn(_) { b'\x01' })
-  @test.assert_eq(
-    @ed25519.verify_result(short_key, empty, empty),
-    Err("public key must be 32 bytes"),
-  )
-  @test.assert_eq(
-    @ed25519.verify_result(long_key, empty, empty),
-    Err("public key must be 32 bytes"),
-  )
-  assert_verifying_key_error(short_key, "public key must be 32 bytes")
-  assert_verifying_key_error(long_key, "public key must be 32 bytes")
+  assert_verify_error(short_key, empty, empty, InvalidPublicKeyLength(got=31))
+  assert_verify_error(long_key, empty, empty, InvalidPublicKeyLength(got=33))
+  assert_verifying_key_error(short_key, InvalidPublicKeyLength(got=31))
+  assert_verifying_key_error(long_key, InvalidPublicKeyLength(got=33))
 }
 
 ///|
-test "malformed point encodings return errors" {
+test "Ed25519Error renders the stable human-readable messages" {
+  // Show is the compatibility surface for logs and the interop script; pin
+  // the exact texts so accidental rewording is caught.
+  @test.assert_eq(
+    @ed25519.InvalidSeedLength(got=0).to_string(),
+    "seed must be 32 bytes",
+  )
+  @test.assert_eq(
+    @ed25519.InvalidPublicKeyLength(got=31).to_string(),
+    "public key must be 32 bytes",
+  )
+  @test.assert_eq(
+    @ed25519.InvalidSignatureLength(got=63).to_string(),
+    "signature must be 64 bytes",
+  )
+  @test.assert_eq(
+    @ed25519.PointYOutOfRange.to_string(),
+    "encoded point y coordinate is out of range",
+  )
+  @test.assert_eq(
+    @ed25519.PointNotOnCurve.to_string(),
+    "encoded point is not on Ed25519",
+  )
+  @test.assert_eq(
+    @ed25519.PointNotCanonical.to_string(),
+    "encoded point is not canonical",
+  )
+  @test.assert_eq(
+    @ed25519.PublicKeySmallOrder.to_string(),
+    "public key has small order",
+  )
+  @test.assert_eq(
+    @ed25519.SignatureRSmallOrder.to_string(),
+    "signature R has small order",
+  )
+  @test.assert_eq(
+    @ed25519.PublicKeyNotPrimeOrder.to_string(),
+    "public key is not in the prime-order subgroup",
+  )
+  @test.assert_eq(
+    @ed25519.SignatureSOutOfRange.to_string(),
+    "signature S scalar is out of range",
+  )
+}
+
+///|
+test "malformed point encodings raise errors" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let empty : Bytes = b""
-  let valid_signature = @ed25519.sign(seed, empty).unwrap()
+  let valid_signature = @ed25519.sign(seed, empty)
   let y_equal_to_p = hex(
     "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
   )
-  @test.assert_eq(
-    @ed25519.verify_result(y_equal_to_p, empty, valid_signature),
-    Err("encoded point y coordinate is out of range"),
-  )
-  assert_verifying_key_error(
-    y_equal_to_p, "encoded point y coordinate is out of range",
-  )
+  assert_verify_error(y_equal_to_p, empty, valid_signature, PointYOutOfRange)
+  assert_verifying_key_error(y_equal_to_p, PointYOutOfRange)
   let signature_with_invalid_r = hex(
     "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f" +
     "0000000000000000000000000000000000000000000000000000000000000000",
   )
-  @test.assert_eq(
-    @ed25519.verify_result(public_key, empty, signature_with_invalid_r),
-    Err("encoded point y coordinate is out of range"),
+  assert_verify_error(
+    public_key,
+    empty,
+    signature_with_invalid_r,
+    PointYOutOfRange,
   )
   // y = 2 is canonical but (y^2 - 1) / (1 + d*y^2) is a non-residue, so no x
   // satisfies the curve equation: exercises the square-root rejection branch.
   let y_not_on_curve = hex(
     "0200000000000000000000000000000000000000000000000000000000000000",
   )
-  @test.assert_eq(
-    @ed25519.verify_result(y_not_on_curve, empty, valid_signature),
-    Err("encoded point is not on Ed25519"),
-  )
-  assert_verifying_key_error(y_not_on_curve, "encoded point is not on Ed25519")
+  assert_verify_error(y_not_on_curve, empty, valid_signature, PointNotOnCurve)
+  assert_verifying_key_error(y_not_on_curve, PointNotOnCurve)
 }
 
 ///|
@@ -378,12 +430,9 @@ test "short signature is rejected" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let short : Bytes = b""
-  @test.assert_eq(
-    @ed25519.verify_result(public_key, short, short),
-    Err("signature must be 64 bytes"),
-  )
+  assert_verify_error(public_key, short, short, InvalidSignatureLength(got=0))
 }
 
 ///|
@@ -391,9 +440,9 @@ test "verification distinguishes s = L from s < L" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let empty : Bytes = b""
-  let valid_sig = @ed25519.sign(seed, empty).unwrap()
+  let valid_sig = @ed25519.sign(seed, empty)
   // L - 1 in little-endian: largest scalar that should pass the s < L check.
   // The signature is still rejected at the curve check, but the error must
   // not be "out of range", which would imply the boundary is inclusive.
@@ -407,10 +456,7 @@ test "verification distinguishes s = L from s < L" {
       s_l_minus_1[i - 32]
     }
   })
-  @test.assert_eq(
-    @ed25519.verify_result(public_key, empty, tampered),
-    Ok(false),
-  )
+  assert_false(@ed25519.verify_result(public_key, empty, tampered))
 }
 
 ///|
@@ -418,10 +464,10 @@ test "sign and verify message spanning multiple SHA-512 blocks" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   // SHA-512 block size is 128 bytes; 200 bytes guarantees a multi-block input.
   let long_message = Bytes::makei(200, fn(i) { (i % 256).to_byte() })
-  let signature = @ed25519.sign(seed, long_message).unwrap()
+  let signature = @ed25519.sign(seed, long_message)
   assert_true(@ed25519.verify(public_key, long_message, signature))
   let tampered_last_byte = Bytes::makei(200, fn(i) {
     if i == 199 {
@@ -479,8 +525,8 @@ test "rfc8032 test 1024: 1023 byte message" {
     "0aab4c900501b3e24d7cdf4663326a3a87df5e4843b2cbdb67cbf6e460fec350" +
     "aa5371b1508f9f4528ecea23c436d94b5e8fcd4f681e30a6ac00a9704a188a03",
   )
-  @test.assert_eq(@ed25519.derive_public_key(seed), Ok(public_key))
-  @test.assert_eq(@ed25519.sign(seed, message), Ok(signature))
+  @test.assert_eq(@ed25519.derive_public_key(seed), public_key)
+  @test.assert_eq(@ed25519.sign(seed, message), signature)
   assert_true(@ed25519.verify(public_key, message, signature))
 }
 
@@ -489,9 +535,9 @@ test "verification distinguishes s = 0 from s out of range" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   let empty : Bytes = b""
-  let valid_sig = @ed25519.sign(seed, empty).unwrap()
+  let valid_sig = @ed25519.sign(seed, empty)
   // Replace S with zero while keeping the valid R. S = 0 is the smallest
   // canonical scalar (S < L); the boundary must not be reported as
   // out-of-range, even though the curve equation rejects the signature.
@@ -502,7 +548,7 @@ test "verification distinguishes s = 0 from s out of range" {
       b'\x00'
     }
   })
-  @test.assert_eq(@ed25519.verify_result(public_key, empty, zero_s), Ok(false))
+  assert_false(@ed25519.verify_result(public_key, empty, zero_s))
 }
 
 ///|
@@ -513,7 +559,7 @@ test "verify wrapper collapses malformed-input errors to false" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
   )
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
   // signature must be 64 bytes
   assert_false(@ed25519.verify(public_key, empty, empty))
   // small-order public key (verify_result returns Err, verify must yield false)

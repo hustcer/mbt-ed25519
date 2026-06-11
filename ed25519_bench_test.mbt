@@ -40,19 +40,19 @@ fn bench_license_payload() -> Bytes {
 ///|
 test "bench: derive public key from seed" (b : @bench.T) {
   let seed = bench_seed()
-  b.bench(fn() { b.keep(@ed25519.derive_public_key(seed).unwrap()) })
+  b.bench(fn() { b.keep(try! @ed25519.derive_public_key(seed)) })
 }
 
 ///|
 test "bench: sign license-sized payload" (b : @bench.T) {
   let seed = bench_seed()
   let message = bench_license_payload()
-  b.bench(fn() { b.keep(@ed25519.sign(seed, message).unwrap()) })
+  b.bench(fn() { b.keep(try! @ed25519.sign(seed, message)) })
 }
 
 ///|
 test "bench: sign license-sized payload with cached SigningKey" (b : @bench.T) {
-  let signing_key = @ed25519.SigningKey::from_seed(bench_seed()).unwrap()
+  let signing_key = @ed25519.SigningKey::from_seed(bench_seed())
   let message = bench_license_payload()
   b.bench(fn() { b.keep(signing_key.sign(message)) })
 }
@@ -61,8 +61,8 @@ test "bench: sign license-sized payload with cached SigningKey" (b : @bench.T) {
 test "bench: verify license-sized payload" (b : @bench.T) {
   let seed = bench_seed()
   let message = bench_license_payload()
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
-  let signature = @ed25519.sign(seed, message).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
+  let signature = @ed25519.sign(seed, message)
   b.bench(fn() { b.keep(@ed25519.verify(public_key, message, signature)) })
 }
 
@@ -72,9 +72,9 @@ test "bench: verify license-sized payload with cached VerifyingKey" (
 ) {
   let seed = bench_seed()
   let message = bench_license_payload()
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
-  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
-  let signature = @ed25519.sign(seed, message).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key)
+  let signature = @ed25519.sign(seed, message)
   b.bench(fn() { b.keep(verifying_key.verify(message, signature)) })
 }
 
@@ -105,7 +105,7 @@ test "bench: verify OpenSSL Ed25519 signature with cached VerifyingKey" (
   let public_key = bench_hex(
     "74e90e5ff7e46c80ec509272bee032de8b3471e8544f144d0826f7a353aad576",
   )
-  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key)
   let signature = bench_hex(
     "74f52c4d97e4c97eca42b27d242f8505791cafa00eb3f4a7ffea5f7520e92e36" +
     "b2ae98c9489542ed6cd33a5cd65c6cfb10af7310afb400ea392992c263cf2400",
@@ -117,9 +117,9 @@ test "bench: verify OpenSSL Ed25519 signature with cached VerifyingKey" (
 test "bench: reject tampered signature with cached VerifyingKey" (b : @bench.T) {
   let seed = bench_seed()
   let message = bench_license_payload()
-  let public_key = @ed25519.derive_public_key(seed).unwrap()
-  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
-  let valid = @ed25519.sign(seed, message).unwrap()
+  let public_key = @ed25519.derive_public_key(seed)
+  let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key)
+  let valid = @ed25519.sign(seed, message)
   // Flip a byte inside the S half so canonicity (S < L) still passes but the
   // main verification equation rejects the signature; this exercises the
   // invalid-signature fast path that skips the defense-in-depth R subgroup

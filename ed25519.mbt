@@ -408,9 +408,13 @@ fn encode_extended_point(point : ExtendedPoint) -> Bytes {
 }
 
 ///|
-fn decode_point(bytes : BytesView) -> Result[Point, String] {
+/// Decode a 32-byte point encoding. Callers must pre-validate the length:
+/// the public key path checks it (with its own error) before calling, and the
+/// signature R slice is always 32 bytes once the 64-byte signature length has
+/// been checked.
+fn decode_point(bytes : BytesView) -> Point raise Ed25519Error {
   if bytes.length() != 32 {
-    return Err("encoded point must be 32 bytes")
+    abort("decode_point: callers must pass exactly 32 bytes")
   }
   let sign : Byte = (bytes[31] >> 7) & b'\x01'
   let y_bytes = Bytes::makei(32, fn(i) {
@@ -422,7 +426,7 @@ fn decode_point(bytes : BytesView) -> Result[Point, String] {
   })
   let y = bytes_le_to_bigint(y_bytes)
   if y >= p {
-    return Err("encoded point y coordinate is out of range")
+    raise PointYOutOfRange
   }
   let y2 = modp(y * y)
   let u = modp(y2 - 1N)
@@ -438,7 +442,7 @@ fn decode_point(bytes : BytesView) -> Result[Point, String] {
   let vxx = modp(v * x * x)
   if vxx != u {
     if vxx != modp(p - u) {
-      return Err("encoded point is not on Ed25519")
+      raise PointNotOnCurve
     }
     x = modp(x * sqrt_m1)
   }
@@ -447,60 +451,54 @@ fn decode_point(bytes : BytesView) -> Result[Point, String] {
   }
   let point = { x, y }
   if encode_point(point)[:] != bytes {
-    return Err("encoded point is not canonical")
+    raise PointNotCanonical
   }
-  Ok(point)
+  point
 }
 
 ///|
+/// Decode a point and reject small-order results, raising the caller-supplied
+/// error so the public key and signature R paths report distinct variants.
 fn decode_small_order_check_point(
   bytes : BytesView,
-  name : String,
-) -> Result[ExtendedPoint, String] {
-  let point = match decode_point(bytes) {
-    Err(err) => return Err(err)
-    Ok(point) => point
-  }
-  let extended = extended_from_affine(point)
+  small_order_error : Ed25519Error,
+) -> ExtendedPoint raise Ed25519Error {
+  let extended = extended_from_affine(decode_point(bytes))
   if extended_has_small_order(extended) {
-    return Err("\{name} has small order")
+    raise small_order_error
   }
-  Ok(extended)
+  extended
 }
 
 ///|
-/// Decode a public key point and return the window table of its negation for
-/// the verification equation. Building the -A table first lets the prime-order
+/// Decode a public key and return the window table of its negation for the
+/// verification equation. Building the -A table first lets the prime-order
 /// check reuse it (l*(-A) == identity iff l*A == identity), so key setup
 /// constructs one window table instead of two. The length check lives here so
-/// both callers report the same "\{name} must be 32 bytes" error.
+/// both callers report the same error.
 fn decode_neg_prime_order_window5_table(
   bytes : BytesView,
-  name : String,
-) -> Result[Array[ExtendedPoint], String] {
+) -> Array[ExtendedPoint] raise Ed25519Error {
   if bytes.length() != 32 {
-    return Err("\{name} must be 32 bytes")
+    raise InvalidPublicKeyLength(got=bytes.length())
   }
-  let extended = match decode_small_order_check_point(bytes, name) {
-    Err(err) => return Err(err)
-    Ok(extended) => extended
-  }
+  let extended = decode_small_order_check_point(bytes, PublicKeySmallOrder)
   let neg_table = extended_window5_table(extended_neg(extended))
   if !window5_table_has_prime_order(neg_table) {
-    return Err("\{name} is not in the prime-order subgroup")
+    raise PublicKeyNotPrimeOrder
   }
-  Ok(neg_table)
+  neg_table
 }
 
 ///|
-fn expanded_secret(seed : BytesView) -> Result[(BigInt, Bytes), String] {
+fn expanded_secret(seed : BytesView) -> (BigInt, Bytes) raise Ed25519Error {
   if seed.length() != 32 {
-    return Err("seed must be 32 bytes")
+    raise InvalidSeedLength(got=seed.length())
   }
   let digest = sha512(seed)
   let a_bytes = clamp_scalar(digest[0:32])
   let prefix = digest[32:64].to_owned()
-  Ok((bytes_le_to_bigint(a_bytes), prefix))
+  (bytes_le_to_bigint(a_bytes), prefix)
 }
 
 ///|
@@ -521,15 +519,11 @@ fn sign_with_expanded_key(
 
 ///|
 /// Create an expanded signing key from a 32-byte Ed25519 private seed.
-pub fn SigningKey::from_seed(seed : BytesView) -> Result[SigningKey, String] {
-  match expanded_secret(seed) {
-    Err(err) => Err(err)
-    Ok((a, prefix)) => {
-      let public_point = base_point_mul(a)
-      let public_key = encode_extended_point(public_point)
-      Ok({ a, prefix, public_key, public_point })
-    }
-  }
+pub fn SigningKey::from_seed(seed : BytesView) -> SigningKey raise Ed25519Error {
+  let (a, prefix) = expanded_secret(seed)
+  let public_point = base_point_mul(a)
+  let public_key = encode_extended_point(public_point)
+  { a, prefix, public_key, public_point }
 }
 
 ///|
@@ -563,16 +557,9 @@ pub fn SigningKey::verifying_key(self : SigningKey) -> VerifyingKey {
 /// Create an expanded verifying key from a 32-byte Ed25519 public key.
 pub fn VerifyingKey::from_public_key(
   public_key : BytesView,
-) -> Result[VerifyingKey, String] {
-  let neg_table = match
-    decode_neg_prime_order_window5_table(public_key, "public key") {
-    Err(err) => return Err(err)
-    Ok(table) => table
-  }
-  Ok({
-    public_key: public_key.to_owned(),
-    neg_public_key_window5_table: neg_table,
-  })
+) -> VerifyingKey raise Ed25519Error {
+  let neg_table = decode_neg_prime_order_window5_table(public_key)
+  { public_key: public_key.to_owned(), neg_public_key_window5_table: neg_table }
 }
 
 ///|
@@ -582,22 +569,27 @@ pub fn VerifyingKey::public_key(self : VerifyingKey) -> Bytes {
 }
 
 ///|
-/// Verify a signature with a pre-expanded verifying key.
+/// Verify a signature with a pre-expanded verifying key, collapsing malformed
+/// inputs to `false`.
 pub fn VerifyingKey::verify(
   self : VerifyingKey,
   message : BytesView,
   signature : BytesView,
 ) -> Bool {
-  self.verify_result(message, signature).unwrap_or(false)
+  self.verify_result(message, signature) catch {
+    _ => false
+  }
 }
 
 ///|
-/// Verify a signature with a pre-expanded verifying key and report malformed inputs.
+/// Verify a signature with a pre-expanded verifying key, raising
+/// `Ed25519Error` for malformed inputs so callers can distinguish them from a
+/// valid-but-rejected signature.
 pub fn VerifyingKey::verify_result(
   self : VerifyingKey,
   message : BytesView,
   signature : BytesView,
-) -> Result[Bool, String] {
+) -> Bool raise Ed25519Error {
   verify_with_neg_public_key_table(
     self.public_key,
     self.neg_public_key_window5_table,
@@ -608,47 +600,41 @@ pub fn VerifyingKey::verify_result(
 
 ///|
 /// Derive a 32-byte Ed25519 public key from a 32-byte private seed.
-pub fn derive_public_key(seed : BytesView) -> Result[Bytes, String] {
-  match expanded_secret(seed) {
-    Err(err) => Err(err)
-    Ok((a, _prefix)) => Ok(encode_extended_point(base_point_mul(a)))
-  }
+pub fn derive_public_key(seed : BytesView) -> Bytes raise Ed25519Error {
+  let (a, _prefix) = expanded_secret(seed)
+  encode_extended_point(base_point_mul(a))
 }
 
 ///|
 /// Sign a message with a 32-byte Ed25519 private seed.
-pub fn sign(seed : BytesView, message : BytesView) -> Result[Bytes, String] {
-  match expanded_secret(seed) {
-    Err(err) => Err(err)
-    Ok((a, prefix)) => {
-      let public_key = encode_extended_point(base_point_mul(a))
-      Ok(sign_with_expanded_key(a, prefix, public_key, message))
-    }
-  }
+pub fn sign(seed : BytesView, message : BytesView) -> Bytes raise Ed25519Error {
+  let (a, prefix) = expanded_secret(seed)
+  let public_key = encode_extended_point(base_point_mul(a))
+  sign_with_expanded_key(a, prefix, public_key, message)
 }
 
 ///|
-/// Verify a 64-byte Ed25519 signature for a message and 32-byte public key.
+/// Verify a 64-byte Ed25519 signature for a message and 32-byte public key,
+/// collapsing malformed inputs to `false`.
 pub fn verify(
   public_key : BytesView,
   message : BytesView,
   signature : BytesView,
 ) -> Bool {
-  verify_result(public_key, message, signature).unwrap_or(false)
+  verify_result(public_key, message, signature) catch {
+    _ => false
+  }
 }
 
 ///|
-/// Verify a signature and return an error for malformed public inputs.
+/// Verify a signature, raising `Ed25519Error` for malformed public inputs so
+/// callers can distinguish them from a valid-but-rejected signature.
 pub fn verify_result(
   public_key : BytesView,
   message : BytesView,
   signature : BytesView,
-) -> Result[Bool, String] {
-  let neg_table = match
-    decode_neg_prime_order_window5_table(public_key, "public key") {
-    Err(err) => return Err(err)
-    Ok(table) => table
-  }
+) -> Bool raise Ed25519Error {
+  let neg_table = decode_neg_prime_order_window5_table(public_key)
   verify_with_neg_public_key_table(public_key, neg_table, message, signature)
 }
 
@@ -658,25 +644,22 @@ fn verify_with_neg_public_key_table(
   neg_public_key_window5_table : Array[ExtendedPoint],
   message : BytesView,
   signature : BytesView,
-) -> Result[Bool, String] {
+) -> Bool raise Ed25519Error {
   if signature.length() != 64 {
-    return Err("signature must be 64 bytes")
+    raise InvalidSignatureLength(got=signature.length())
   }
   let r_encoded = signature[0:32]
   let s_bytes = signature[32:64]
   let s = bytes_le_to_bigint(s_bytes)
   if s >= l {
-    return Err("signature S scalar is out of range")
+    raise SignatureSOutOfRange
   }
-  let r = match decode_small_order_check_point(r_encoded, "signature R") {
-    Err(err) => return Err(err)
-    Ok(extended) => extended
-  }
+  let r = decode_small_order_check_point(r_encoded, SignatureRSmallOrder)
   let k = modl(
     bytes_le_to_bigint(sha512_concat3(r_encoded, public_key, message)),
   )
   let combined = extended_mul_two_with_window5_tables(
     s, base_point_window5_table, k, neg_public_key_window5_table,
   )
-  Ok(extended_equal(combined, r))
+  extended_equal(combined, r)
 }

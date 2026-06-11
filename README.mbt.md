@@ -37,26 +37,40 @@ This repository itself depends on `Tigls/mb-hash` for SHA-512.
 The public API is generated in `pkg.generated.mbti` and currently consists of:
 
 ```moonbit nocheck
-pub fn derive_public_key(BytesView) -> Result[Bytes, String]
-pub fn sign(BytesView, BytesView) -> Result[Bytes, String]
+pub fn derive_public_key(BytesView) -> Bytes raise Ed25519Error
+pub fn sign(BytesView, BytesView) -> Bytes raise Ed25519Error
 pub fn verify(BytesView, BytesView, BytesView) -> Bool
-pub fn verify_result(BytesView, BytesView, BytesView) -> Result[Bool, String]
+pub fn verify_result(BytesView, BytesView, BytesView) -> Bool raise Ed25519Error
+
+pub(all) suberror Ed25519Error {
+  InvalidSeedLength(got~ : Int)
+  InvalidPublicKeyLength(got~ : Int)
+  InvalidSignatureLength(got~ : Int)
+  PointYOutOfRange
+  PointNotOnCurve
+  PointNotCanonical
+  PublicKeySmallOrder
+  SignatureRSmallOrder
+  PublicKeyNotPrimeOrder
+  SignatureSOutOfRange
+} derive(Eq, Debug)
+pub impl Show for Ed25519Error
 
 pub struct SigningKey
-pub fn SigningKey::from_seed(BytesView) -> Result[SigningKey, String]
+pub fn SigningKey::from_seed(BytesView) -> SigningKey raise Ed25519Error
 pub fn SigningKey::public_key(SigningKey) -> Bytes
 pub fn SigningKey::sign(SigningKey, BytesView) -> Bytes
 pub fn SigningKey::verifying_key(SigningKey) -> VerifyingKey
 
 pub struct VerifyingKey
-pub fn VerifyingKey::from_public_key(BytesView) -> Result[VerifyingKey, String]
+pub fn VerifyingKey::from_public_key(BytesView) -> VerifyingKey raise Ed25519Error
 pub fn VerifyingKey::public_key(VerifyingKey) -> Bytes
 pub fn VerifyingKey::verify(VerifyingKey, BytesView, BytesView) -> Bool
 pub fn VerifyingKey::verify_result(
   VerifyingKey,
   BytesView,
   BytesView,
-) -> Result[Bool, String]
+) -> Bool raise Ed25519Error
 ```
 
 ## Data Model
@@ -68,32 +82,49 @@ pub fn VerifyingKey::verify_result(
 
 The implementation validates byte lengths, canonical point encodings,
 public-key prime-order subgroup membership, signature `R` prime-order subgroup
-membership, and signature `S < L`. The `Result` returning functions report
-malformed inputs as `Err(String)`.
+membership, and signature `S < L`. Malformed inputs raise `Ed25519Error`, a
+checked error whose variants can be pattern matched precisely; its `Show`
+instance renders the same human-readable messages as the pre-0.4 string API.
 
 `verify` and `VerifyingKey::verify` return `false` on malformed input or an
-invalid signature. Use `verify_result` or `VerifyingKey::verify_result` when the
-caller needs to distinguish malformed input from a valid-but-rejected signature.
+invalid signature and never raise. Use `verify_result` or
+`VerifyingKey::verify_result` when the caller needs to distinguish malformed
+input (raises `Ed25519Error`) from a valid-but-rejected signature (returns
+`false`).
 
 ## Usage
 
-One-off signing and verification:
+One-off signing and verification. The fallible functions raise the checked
+`Ed25519Error`, so call them from a `raise` context (or handle locally with
+`catch`):
 
 ```moonbit nocheck
 ///|
-let seed : Bytes = b"\x9d\x61\xb1\x9d\xef\xfd\x5a\x60\xba\x84\x4a\xf4\x92\xec\x2c\xc4\x44\x49\xc5\x69\x7b\x32\x69\x19\x70\x3b\xac\x03\x1c\xae\x7f\x60"
+fn issue_and_check_license() -> Bool raise {
+  let seed : Bytes = b"\x9d\x61\xb1\x9d\xef\xfd\x5a\x60\xba\x84\x4a\xf4\x92\xec\x2c\xc4\x44\x49\xc5\x69\x7b\x32\x69\x19\x70\x3b\xac\x03\x1c\xae\x7f\x60"
+  let message : Bytes = b"license"
+  let public_key = @ed25519.derive_public_key(seed)
+  let signature = @ed25519.sign(seed, message)
+  @ed25519.verify(public_key, message, signature)
+}
+```
 
-///|
-let message : Bytes = b"license"
+To handle a malformed input precisely, match the error variants:
 
+```moonbit nocheck
 ///|
-let public_key = @ed25519.derive_public_key(seed).unwrap()
-
-///|
-let signature = @ed25519.sign(seed, message).unwrap()
-
-///|
-let ok = @ed25519.verify(public_key, message, signature)
+fn check_strict(public_key : Bytes, message : Bytes, sig : Bytes) -> Bool {
+  @ed25519.verify_result(public_key, message, sig) catch {
+    InvalidPublicKeyLength(got~) => {
+      println("bad public key length: \{got}")
+      false
+    }
+    err => {
+      println("malformed input: \{err}")
+      false
+    }
+  }
+}
 ```
 
 For repeated signing with the same seed, create a `SigningKey` once. It caches
@@ -101,7 +132,7 @@ the expanded scalar, prefix, and derived public key:
 
 ```moonbit nocheck
 ///|
-let signing_key = @ed25519.SigningKey::from_seed(seed).unwrap()
+let signing_key = @ed25519.SigningKey::from_seed(seed)
 
 ///|
 let public_key = signing_key.public_key()
@@ -115,7 +146,7 @@ once. It caches the decoded public key and verification table:
 
 ```moonbit nocheck
 ///|
-let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key).unwrap()
+let verifying_key = @ed25519.VerifyingKey::from_public_key(public_key)
 
 ///|
 let ok = verifying_key.verify(message, signature)

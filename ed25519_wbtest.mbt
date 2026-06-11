@@ -124,7 +124,7 @@ test "prime-order check accepts base point and RFC8032 public key" {
   let rfc_public_key = wb_hex(
     "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
   )
-  let point = decode_point(rfc_public_key).unwrap()
+  let point = decode_point(rfc_public_key)
   assert_true(wb_extended_has_prime_order(extended_from_affine(point)))
 }
 
@@ -133,7 +133,7 @@ test "prime-order check rejects torsion coset without small order" {
   let torsion_mixed = wb_hex(
     "5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea",
   )
-  let extended = extended_from_affine(decode_point(torsion_mixed).unwrap())
+  let extended = extended_from_affine(decode_point(torsion_mixed))
   assert_false(extended_has_small_order(extended))
   assert_false(wb_extended_has_prime_order(extended))
 }
@@ -150,7 +150,7 @@ test "prime-order check matches on negated-point tables" {
   let torsion_mixed = wb_hex(
     "5252cc0a7f208133b620acbd4537eba2a4123bf0a8c2e4f980c3b31bb69765ea",
   )
-  let mixed = extended_from_affine(decode_point(torsion_mixed).unwrap())
+  let mixed = extended_from_affine(decode_point(torsion_mixed))
   assert_false(window5_table_has_prime_order(extended_window5_table(mixed)))
   assert_false(
     window5_table_has_prime_order(extended_window5_table(extended_neg(mixed))),
@@ -296,7 +296,7 @@ test "lazy reduction: encode-decode roundtrip after repeated operations" {
   let bp = base_point()
   let p5 = extended_add(extended_double(extended_double(bp)), bp)
   let encoded = encode_extended_point(p5)
-  let decoded = decode_point(encoded).unwrap()
+  let decoded = decode_point(encoded)
   let re_extended = extended_from_affine(decoded)
   @test.assert_eq(encode_extended_point(re_extended), encoded)
 }
