@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.4.0 - 2026-06-12
+
+### Added
+
+- Add `SigningKey::verifying_key`, an infallible way to derive a cached `VerifyingKey` directly from a `SigningKey` without re-decoding the encoded public key.
+
+### Performance
+
+- Decode Ed25519 points with the RFC 8032 single-exponentiation square-root path.
+- Reuse the negated public-key window table for the prime-order subgroup check.
+- Reduce modular reductions in point addition/doubling and reuse the SHA-512 byte conversion buffer across chunks.
+
+### Reliability and Tests
+
+- Guard windowed scalar digit splitting against negative and over-255-bit scalars.
+- Share public-key length validation between one-shot verification and cached `VerifyingKey` construction.
+- Add coverage for `SigningKey::verifying_key`, malformed point encodings, scalar bounds, lazy point arithmetic, and SHA-512 buffer reuse.
+
 ## v0.3.0 - 2026-05-25
 
 ### Behavior Changes
