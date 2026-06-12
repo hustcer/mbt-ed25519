@@ -17,7 +17,7 @@ Add the module dependency in `moon.mod.json`:
 ```json
 {
   "deps": {
-    "hustcer/ed25519": "0.4.0"
+    "hustcer/ed25519": "0.5.0"
   }
 }
 ```
@@ -84,7 +84,7 @@ The implementation validates byte lengths, canonical point encodings,
 public-key prime-order subgroup membership, signature `R` prime-order subgroup
 membership, and signature `S < L`. Malformed inputs raise `Ed25519Error`, a
 checked error whose variants can be pattern matched precisely; its `Show`
-instance renders the same human-readable messages as the pre-0.4 string API.
+instance renders the same human-readable messages as the pre-0.5 string API.
 
 `verify` and `VerifyingKey::verify` return `false` on malformed input or an
 invalid signature and never raise. Use `verify_result` or
@@ -115,7 +115,7 @@ To handle a malformed input precisely, match the error variants:
 ///|
 fn check_strict(public_key : Bytes, message : Bytes, sig : Bytes) -> Bool {
   @ed25519.verify_result(public_key, message, sig) catch {
-    InvalidPublicKeyLength(got~) => {
+    @ed25519.InvalidPublicKeyLength(got~) => {
       println("bad public key length: \{got}")
       false
     }

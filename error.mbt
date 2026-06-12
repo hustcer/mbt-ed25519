@@ -2,7 +2,7 @@
 /// Errors raised by the fallible Ed25519 operations: seed expansion, public
 /// key parsing, and strict signature verification. Match on the variants to
 /// handle failure modes precisely; `Show` renders the same human-readable
-/// messages the pre-0.4 `Result[_, String]` API returned.
+/// messages the pre-0.5 `Result[_, String]` API returned.
 pub(all) suberror Ed25519Error {
   InvalidSeedLength(got~ : Int)
   InvalidPublicKeyLength(got~ : Int)
@@ -17,7 +17,7 @@ pub(all) suberror Ed25519Error {
 } derive(Eq, Debug)
 
 ///|
-/// Keep the exact pre-0.4 message texts so logs and the OpenSSL interop
+/// Keep the exact pre-0.5 message texts so logs and the OpenSSL interop
 /// output remain stable; the structured payloads stay available to callers
 /// through pattern matching and `Debug`.
 pub impl Show for Ed25519Error with fn output(self, logger) {

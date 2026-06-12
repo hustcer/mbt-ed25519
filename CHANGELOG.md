@@ -2,6 +2,87 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.0 - 2026-06-12
+
+### Breaking Changes
+
+- Replace the public `Result[_, String]` error API with checked MoonBit errors.
+  Fallible public functions now return their success value directly and declare
+  `raise Ed25519Error`:
+  - `derive_public_key(seed)` now returns `Bytes raise Ed25519Error`.
+  - `sign(seed, message)` now returns `Bytes raise Ed25519Error`.
+  - `SigningKey::from_seed(seed)` now returns `SigningKey raise Ed25519Error`.
+  - `VerifyingKey::from_public_key(public_key)` now returns
+    `VerifyingKey raise Ed25519Error`.
+  - `verify_result(public_key, message, signature)` now returns
+    `Bool raise Ed25519Error`.
+  - `VerifyingKey::verify_result(message, signature)` now returns
+    `Bool raise Ed25519Error`.
+- The boolean convenience wrappers are intentionally unchanged:
+  `verify(...) -> Bool` and `VerifyingKey::verify(...) -> Bool` still never
+  raise and still collapse malformed input to `false`.
+
+### Migration Guide
+
+- Replace success-path unwrapping with direct calls inside a `raise` context.
+  For example, change `@ed25519.sign(seed, message).unwrap()` to
+  `@ed25519.sign(seed, message)` and make the containing function declare
+  `raise` or `raise @ed25519.Ed25519Error`.
+- Replace `match`/`if` logic over `Ok(value)` and `Err(message)` with
+  `try ... catch ... noraise` or expression-level `catch`.
+  - Old invalid-input handling matched `Err("signature must be 64 bytes")`.
+  - New invalid-input handling catches
+    `@ed25519.InvalidSignatureLength(got=...)`.
+- Replace `Ok(false)` checks from `verify_result` with plain `false` checks.
+  A malformed input now raises; a well-formed but invalid signature still
+  returns `false`.
+- Code that only calls `verify` or `VerifyingKey::verify` does not need to
+  change unless it also constructs a cached `VerifyingKey` with
+  `VerifyingKey::from_public_key`.
+- For one-off command-line tools or tests where malformed inputs should abort,
+  `try! @ed25519.sign(...)` remains a possible local adaptation, but library
+  code should usually propagate with `raise` or handle with `catch`.
+
+### Added
+
+- Add public checked error type `Ed25519Error` with structured variants for all
+  malformed-input cases:
+  - `InvalidSeedLength(got~ : Int)`
+  - `InvalidPublicKeyLength(got~ : Int)`
+  - `InvalidSignatureLength(got~ : Int)`
+  - `PointYOutOfRange`
+  - `PointNotOnCurve`
+  - `PointNotCanonical`
+  - `PublicKeySmallOrder`
+  - `SignatureRSmallOrder`
+  - `PublicKeyNotPrimeOrder`
+  - `SignatureSOutOfRange`
+- `Ed25519Error` derives `Eq` and `Debug`, so callers and tests can match or
+  assert exact variants instead of comparing strings.
+- `Ed25519Error` implements `Show` using the same human-readable messages as
+  the previous string API. Existing logs and interop output can remain stable
+  when callers render the error with `to_string()`.
+
+### Refactor
+
+- Propagate internal validation failures with `raise Ed25519Error` instead of
+  manually threading `Result` values through point decoding, key expansion, and
+  strict verification helpers.
+- Treat the internal `decode_point` length check as an internal contract abort;
+  public callers still pre-validate seed, public-key, and signature lengths and
+  raise the structured public variants.
+- Update the OpenSSL interop command to accept raising verification closures
+  while keeping its printed error detail strings byte-compatible.
+
+### Tests and Docs
+
+- Rewrite error-path tests to assert exact `Ed25519Error` variants via
+  `try`/`catch`.
+- Add coverage pinning all `Ed25519Error` `Show` messages.
+- Update README examples to show raise-context usage, catch-based precise
+  matching, and the new public API surface.
+- Regenerate `pkg.generated.mbti` for the new public API.
+
 ## v0.4.0 - 2026-06-12
 
 ### Added
