@@ -36,7 +36,7 @@ def assert-failure [label: string, result: record]: nothing -> nothing {
 }
 
 def file-hex [path: path]: nothing -> string {
-  open --raw $path | encode hex | str trim | str downcase
+  open --raw $path | encode hex | str trim | str lowercase
 }
 
 def extract-prefixed-hex [
