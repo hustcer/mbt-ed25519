@@ -122,8 +122,7 @@ test "bench: reject tampered signature with cached VerifyingKey" (b : @bench.T) 
   let valid = @ed25519.sign(seed, message)
   // Flip a byte inside the S half so canonicity (S < L) still passes but the
   // main verification equation rejects the signature; this exercises the
-  // invalid-signature fast path that skips the defense-in-depth R subgroup
-  // check.
+  // invalid-signature path after canonical decoding.
   let tampered = Bytes::makei(64, fn(i) {
     if i == 32 {
       valid[32] ^ b'\x01'

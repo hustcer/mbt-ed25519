@@ -263,11 +263,9 @@ test "verification rejects non-prime-order signature r" {
     "0000000000000000000000000000000000000000000000000000000000000000",
   )
   let empty : Bytes = b""
-  // s*B - k*A always lies in the prime-order subgroup, so the main
-  // verification rejects a cofactor-mixed R before the defense-in-depth
-  // prime-order check is reached. The R-subgroup error is therefore
-  // mathematically unreachable here and the malformed-input report
-  // collapses into a plain false.
+  // s*B - k*A always lies in the prime-order subgroup, so the main equation
+  // rejects a cofactor-mixed R. It is therefore reported as a well-formed but
+  // invalid signature rather than as a separate malformed-input error.
   assert_false(
     @ed25519.verify(public_key, empty, signature_with_torsion_mixed_r),
   )
@@ -320,6 +318,9 @@ test "SigningKey::verifying_key matches VerifyingKey::from_public_key" {
     decoded_key.verify_result(message, signature),
     verifying_key.verify_result(message, signature),
   )
+  // The cached boolean wrapper must collapse malformed signatures just like
+  // the package-level `verify` convenience function.
+  assert_false(verifying_key.verify(message, b""))
 }
 
 ///|

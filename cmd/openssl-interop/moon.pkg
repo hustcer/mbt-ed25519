@@ -1,5 +1,5 @@
 import {
-  "hustcer/ed25519" @ed25519,
+  "hustcer/ed25519",
   "moonbitlang/core/argparse",
 }
 

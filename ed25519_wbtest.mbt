@@ -96,6 +96,12 @@ test "nonce scalar matches RFC8032 vector 1" {
 }
 
 ///|
+test "scalar and byte conversion helpers cover signed and empty boundaries" {
+  @test.assert_eq(modl(-1N), l - 1N)
+  @test.assert_eq(bytes_le_to_bigint(b""), 0N)
+}
+
+///|
 test "windowed scalar multiplication handles identity and base point" {
   @test.assert_eq(
     encode_extended_point(

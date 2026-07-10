@@ -81,13 +81,13 @@ fn verify_report(
 
 ///|
 fn main raise {
-  let command = @argparse.Command::new(
+  let command = @argparse.Command(
     "openssl-interop",
     positionals=[
-      @argparse.PositionArg::new("seed_hex"),
-      @argparse.PositionArg::new("message_hex"),
-      @argparse.PositionArg::new("openssl_public_hex"),
-      @argparse.PositionArg::new("openssl_signature_hex"),
+      PositionArg("seed_hex"),
+      PositionArg("message_hex"),
+      PositionArg("openssl_public_hex"),
+      PositionArg("openssl_signature_hex"),
     ],
     about="Compute Ed25519 public key/signature and verify OpenSSL vector",
   )

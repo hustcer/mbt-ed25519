@@ -81,8 +81,8 @@ pub fn VerifyingKey::verify_result(
 - Messages are `BytesView` (`Bytes` is implicitly convertible to `BytesView`).
 
 The implementation validates byte lengths, canonical point encodings,
-public-key prime-order subgroup membership, signature `R` prime-order subgroup
-membership, and signature `S < L`. Malformed inputs raise `Ed25519Error`, a
+public-key prime-order subgroup membership, rejects small-order signature `R`
+points, and enforces signature `S < L`. Malformed inputs raise `Ed25519Error`, a
 checked error whose variants can be pattern matched precisely; its `Show`
 instance renders the same human-readable messages as the pre-0.5 string API.
 
@@ -167,10 +167,11 @@ let verifying_key = signing_key.verifying_key()
 This is a plain Ed25519 implementation using SHA-512 from `Tigls/mb-hash`.
 It does not expose Ed25519ph or Ed25519ctx variants.
 
-Verification is intentionally strict: non-canonical point encodings,
-public keys outside the prime-order subgroup, signature `R` points outside the
-prime-order subgroup, and non-canonical `S` scalars are rejected as malformed
-inputs.
+Verification is intentionally strict: non-canonical point encodings, public
+keys outside the prime-order subgroup, small-order signature `R` points, and
+non-canonical `S` scalars are rejected as malformed inputs. A canonical,
+non-small-order `R` outside the prime-order subgroup is rejected by the main
+verification equation and is reported as a well-formed but invalid signature.
 
 The curve arithmetic uses MoonBit `BigInt`, extended Edwards coordinates,
 fixed-length 5-bit scalar windows, a cached basepoint table, and an interleaved
