@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.1 - 2026-07-12
+
+This patch release does not change the public API or Ed25519 behavior.
+
+### Changed
+
+- Update the OpenSSL interop command to current MoonBit `argparse` constructor
+  syntax and remove redundant package aliases.
+- Clarify that canonical, non-small-order signature `R` points outside the
+  prime-order subgroup are reported as invalid signatures, while small-order
+  `R` points remain malformed inputs.
+- Update the Nushell interop script to use `str lowercase` for compatibility
+  with current Nushell releases.
+
+### Tests
+
+- Add coverage for CLI hex parsing failures and roundtrips, malformed signatures
+  with cached verifying keys, negative modular reduction, and empty byte input.
+
 ## v0.5.0 - 2026-06-12
 
 ### Breaking Changes
