@@ -294,6 +294,64 @@ test "openssl interop: verifies external Ed25519 signature" {
 }
 
 ///|
+test "domain-separated binary message preserves context NUL and payload" {
+  let seed = hex(
+    "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  )
+  let public_key = hex(
+    "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  )
+  let payload = hex(
+    "7b22736368656d6156657273696f6e223a2278646f632d7669657765722d6c69" +
+    "63656e73652f7631222c22657870697265734174223a22323032372d30312d30" +
+    "315430303a30303a30302e3030305a227d",
+  )
+  let correct_input = hex(
+    "78646f632d7669657765722d6c6963656e73652f763100" +
+    "7b22736368656d6156657273696f6e223a2278646f632d7669657765722d6c69" +
+    "63656e73652f7631222c22657870697265734174223a22323032372d30312d30" +
+    "315430303a30303a30302e3030305a227d",
+  )
+  let wrong_context_input = hex(
+    "78646f632d636c692d6c6963656e73652f763100" +
+    "7b22736368656d6156657273696f6e223a2278646f632d7669657765722d6c69" +
+    "63656e73652f7631222c22657870697265734174223a22323032372d30312d30" +
+    "315430303a30303a30302e3030305a227d",
+  )
+  let correct_signature = hex(
+    "299933a6e995351f81a657b364d71777aca86b50ea4c6478f0bab574e4812164" +
+    "9f810e9f403790085b2e1d472d3446fecefce8e7306dfad096a2af8ba3ba9b09",
+  )
+  let wrong_context_signature = hex(
+    "ec562311ea97835c06a87e8285c18ea44d21f43a02439964df743344b5a0558b" +
+    "560a86cf35b29e806547931ea37990be9807b464dfe401649867155c06dbf909",
+  )
+  let raw_payload_signature = hex(
+    "5d1040595ed7eb81150ed5384c554e50309d701bbcc04c93baa8e10885d1917f" +
+    "c80ee56f38e5a37256a2d70b847f003079d826430e2e2d96d6703f2ad6429a06",
+  )
+  // These fixed signatures were independently generated with Node.js 22
+  // `crypto.sign(null, ...)`, so they also lock the exact NUL byte position.
+  @test.assert_eq(@ed25519.sign(seed, correct_input), correct_signature)
+  @test.assert_eq(
+    @ed25519.sign(seed, wrong_context_input),
+    wrong_context_signature,
+  )
+  @test.assert_eq(@ed25519.sign(seed, payload), raw_payload_signature)
+  assert_true(@ed25519.verify(public_key, correct_input, correct_signature))
+  assert_false(
+    @ed25519.verify(public_key, wrong_context_input, correct_signature),
+  )
+  assert_false(@ed25519.verify(public_key, payload, correct_signature))
+  assert_false(
+    @ed25519.verify(public_key, correct_input, wrong_context_signature),
+  )
+  assert_false(
+    @ed25519.verify(public_key, correct_input, raw_payload_signature),
+  )
+}
+
+///|
 test "SigningKey::verifying_key matches VerifyingKey::from_public_key" {
   let seed = hex(
     "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",

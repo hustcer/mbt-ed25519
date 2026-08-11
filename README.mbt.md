@@ -249,6 +249,29 @@ subgroup`) before signature math; OpenSSL loads the SPKI successfully and
 
 Pass `--keep-temp` to retain the working directory for inspection.
 
+## Node.js Interop Check
+
+The Node.js interop gate requires Nushell and Node.js 22 or newer. With `fnm`:
+
+```bash
+fnm use 22
+nu tools/node-interop.nu
+```
+
+CI can select an explicit executable with `--node-bin <path>`. The gate uses
+only the built-in `node:crypto` module and covers:
+
+- RFC 8032 vectors 1/2/3, including exact public-key and signature bytes.
+- Bidirectional Node.js/MoonBit signing and verification for binary messages
+  from 0 through 1024 bytes, including SHA-512 padding boundaries.
+- A fixed application-level domain-separation mirror for
+  `context || NUL || payload`; correct-context verification succeeds, while
+  wrong-context and raw-payload variants fail on both implementations.
+
+`tools/node-interop.mjs` rejects Node.js versions older than 22 and does not
+accept text conversions for messages: all interop inputs cross the process
+boundary as canonical hex and are decoded to `Buffer` values before signing.
+
 ## License
 
 Apache-2.0. See `LICENSE`.

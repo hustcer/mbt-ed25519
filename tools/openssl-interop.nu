@@ -111,7 +111,7 @@ def gen-binary-message [n: int]: nothing -> binary {
   for i in 0..<$n {
     let b = ($i mod 256)
     let b_bin = ((to-hex-nibble ($b // 16)) + (to-hex-nibble ($b mod 16)) | decode hex)
-    $acc = ($acc | bytes add $b_bin)
+    $acc = ($acc | bytes add $b_bin --end)
   }
   $acc
 }
