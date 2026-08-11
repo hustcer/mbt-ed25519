@@ -49,4 +49,3 @@ pub fn VerifyingKey::verify_result(Self, BytesView, BytesView) -> Bool raise Ed2
 // Type aliases
 
 // Traits
-

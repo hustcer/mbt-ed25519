@@ -12,21 +12,20 @@ side-channel-sensitive signing systems.
 
 ## Module
 
-Add the module dependency in `moon.mod.json`:
+Add the module dependency in `moon.mod`:
 
-```json
-{
-  "deps": {
-    "hustcer/ed25519": "0.5.1"
-  }
+```text
+import {
+  "hustcer/ed25519@0.5.1",
 }
 ```
 
-Import it from `moon.pkg` with an alias:
+Import the package from `moon.pkg`; its package name provides the default
+`@ed25519` alias:
 
-```moonbit nocheck
+```text
 import {
-  "hustcer/ed25519" @ed25519,
+  "hustcer/ed25519",
 }
 ```
 
