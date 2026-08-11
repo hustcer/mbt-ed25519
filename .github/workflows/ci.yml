@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  moonbit:
+    name: MoonBit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up MoonBit
+        uses: hustcer/setup-moonbit@main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Update dependencies and show tool versions
+        run: |
+          moon update
+          moon version --all
+
+      - name: Check formatting
+        run: moon fmt --check
+
+      - name: Check all targets
+        run: moon check --target all --deny-warn --warn-list +unnecessary_annotation
+
+      - name: Build all targets
+        run: moon build --target all --deny-warn --warn-list +unnecessary_annotation
+
+      - name: Test all targets
+        run: moon test --target all --deny-warn --warn-list +unnecessary_annotation
+
+      - name: Verify generated interfaces
+        run: |
+          moon info --target all
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=all)"
