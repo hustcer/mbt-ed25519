@@ -1,0 +1,79 @@
+name: Interoperability
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: interop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-interop:
+    name: Node.js ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24", "26"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up MoonBit
+        uses: hustcer/setup-moonbit@main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Set up Nushell
+        uses: hustcer/setup-nu@v3
+        with:
+          check-latest: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Show tool versions
+        run: |
+          moon update
+          moon version --all
+          nu --version
+          node --version
+
+      - name: Verify Node.js interoperability
+        run: nu --no-config-file tools/node-interop.nu --node-bin node
+
+  openssl-interop:
+    name: OpenSSL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up MoonBit
+        uses: hustcer/setup-moonbit@main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Set up Nushell
+        uses: hustcer/setup-nu@v3
+        with:
+          check-latest: true
+
+      - name: Show tool versions
+        run: |
+          moon update
+          moon version --all
+          nu --version
+          openssl version
+
+      - name: Verify OpenSSL interoperability
+        run: nu --no-config-file tools/openssl-interop.nu
