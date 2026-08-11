@@ -204,6 +204,39 @@ moon bench --release
 See `BENCHMARK.md` for the benchmark cases and local historical measurements.
 Benchmark numbers are local measurements, not performance guarantees.
 
+## Wycheproof Verification Corpus
+
+`moon test` runs the pinned
+[Project Wycheproof](https://github.com/C2SP/wycheproof) Ed25519 v1 corpus
+through the cached `VerifyingKey` path. Its 150 valid and invalid cases cover
+adversarial inputs such as invalid encodings, signature malleability, appended
+garbage, truncated or compressed signatures, and overflow edge cases. This
+complements the RFC 8032 and interoperability checks with known attack patterns
+and implementation pitfalls; passing the corpus is regression protection, not
+a complete security proof.
+
+The source revision and raw JSON SHA-256 are pinned in
+`tools/update-wycheproof.nu`, while the generated `wycheproof_test.mbt` is
+committed so ordinary test runs do not need network access. Verify that the
+generated file is current with:
+
+```bash
+nu tools/update-wycheproof.nu --check
+```
+
+The check downloads and validates the pinned JSON, regenerates the expected
+MoonBit source in memory, and fails if the committed file is missing or stale.
+To intentionally regenerate it, run:
+
+```bash
+nu tools/update-wycheproof.nu
+moon test
+```
+
+Both generator commands require network access. When advancing to a newer
+Wycheproof revision, update the pinned revision, URL, and SHA-256 together,
+regenerate the test file, and review the resulting corpus diff.
+
 ## OpenSSL Interop Check
 
 The interop check requires Nushell and OpenSSL:
