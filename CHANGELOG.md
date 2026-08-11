@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.2 - 2026-08-11
+
+This patch release does not change the public API or Ed25519 behavior.
+
+### Changed
+
+- Migrate the project manifest from `moon.mod.json` to `moon.mod` and update the
+  MoonBit dependency documentation.
+- Correct byte ordering in the OpenSSL interoperability gate.
+
+### Tests and CI
+
+- Add a pinned C2SP Wycheproof corpus covering all 150 Ed25519 verification
+  cases, with a deterministic update and integrity-check workflow.
+- Add bidirectional Node.js interoperability tests and domain-separation
+  vectors, and run interoperability CI against Node.js 22, 24, and 26 plus
+  OpenSSL.
+
 ## v0.5.1 - 2026-07-12
 
 This patch release does not change the public API or Ed25519 behavior.

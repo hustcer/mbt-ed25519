@@ -16,7 +16,7 @@ Add the module dependency in `moon.mod`:
 
 ```text
 import {
-  "hustcer/ed25519@0.5.1",
+  "hustcer/ed25519@0.5.2",
 }
 ```
 
@@ -28,8 +28,6 @@ import {
   "hustcer/ed25519",
 }
 ```
-
-This repository itself depends on `Tigls/mb-hash` for SHA-512.
 
 ## API
 
