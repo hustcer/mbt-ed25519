@@ -314,65 +314,20 @@ fn bigint_to_le_bytes(value : BigInt, length : Int) -> Bytes {
 }
 
 ///|
-fn sha512_words_to_bytes(words : FixedArray[UInt64]) -> Bytes {
-  Bytes::makei(64, fn(i) {
-    let word_idx = i / 8
-    let byte_in_word = 7 - i % 8
-    ((words[word_idx] >> (byte_in_word * 8)) & 0xffUL).to_byte()
-  })
-}
-
-///|
-/// Feed SHA-512 in fixed-size chunks so that a large message does not
-/// materialise a single `Array[UInt]` the size of the whole input. The exact
-/// value is a memory-vs-call-overhead trade-off: smaller chunks add per-update
-/// overhead without reducing peak allocation further; larger chunks negate the
-/// streaming benefit that motivated this helper in the first place.
-let sha512_update_chunk_size : Int = 1024
-
-///|
-fn sha512_update_bytes(sha : @sha2.Sha512, bytes : BytesView) -> Unit {
-  let mut offset = 0
-  // Allocate the conversion buffer once and reuse it across chunks to reduce
-  // GC pressure on long inputs.
-  let chunk : Array[UInt] = Array::new(capacity=sha512_update_chunk_size)
-  while offset < bytes.length() {
-    let end = if offset + sha512_update_chunk_size < bytes.length() {
-      offset + sha512_update_chunk_size
-    } else {
-      bytes.length()
-    }
-    chunk.clear()
-    for i in offset..<end {
-      chunk.push(bytes[i].to_uint())
-    }
-    sha.update(chunk)
-    offset = end
-  }
-}
-
-///|
 fn sha512(input : BytesView) -> Bytes {
-  let sha = @sha2.Sha512::new()
-  sha512_update_bytes(sha, input)
-  sha512_words_to_bytes(sha.finalize())
+  Bytes::from_array(@crypto.sha512(input))
 }
 
 ///|
 fn sha512_concat2(a : BytesView, b : BytesView) -> Bytes {
-  let sha = @sha2.Sha512::new()
-  sha512_update_bytes(sha, a)
-  sha512_update_bytes(sha, b)
-  sha512_words_to_bytes(sha.finalize())
+  Bytes::from_array(@crypto.SHA512::new()..update(a)..update(b).finalize())
 }
 
 ///|
 fn sha512_concat3(a : BytesView, b : BytesView, c : BytesView) -> Bytes {
-  let sha = @sha2.Sha512::new()
-  sha512_update_bytes(sha, a)
-  sha512_update_bytes(sha, b)
-  sha512_update_bytes(sha, c)
-  sha512_words_to_bytes(sha.finalize())
+  Bytes::from_array(
+    @crypto.SHA512::new()..update(a)..update(b)..update(c).finalize(),
+  )
 }
 
 ///|

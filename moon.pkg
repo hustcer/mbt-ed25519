@@ -1,5 +1,5 @@
 import {
-  "Tigls/mb-hash/sha2",
+  "moonbitlang/x/crypto",
   "moonbitlang/core/bench",
 }
 

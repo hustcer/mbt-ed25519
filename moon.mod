@@ -13,5 +13,5 @@ keywords = [ "ed25519", "signature", "crypto", "license" ]
 description = "A pure MoonBit Ed25519 signing and verification package."
 
 import {
-  "Tigls/mb-hash@0.1.0",
+  "moonbitlang/x@0.5.1",
 }

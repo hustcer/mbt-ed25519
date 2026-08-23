@@ -33,30 +33,39 @@ test "sha512 byte order matches RFC8032 seed hash" {
 }
 
 ///|
+/// Reference digest: concatenate the three inputs eagerly and hash the result
+/// in a single call, so the streaming `sha512_concat*` helpers can be compared
+/// against a one-shot digest of the same byte string.
 fn direct_sha512_concat3(a : BytesView, b : BytesView, c : BytesView) -> Bytes {
-  let arr : Array[UInt] = Array::new(
+  let arr : Array[Byte] = Array::new(
     capacity=a.length() + b.length() + c.length(),
   )
-  wb_append_bytes_as_uint(arr, a)
-  wb_append_bytes_as_uint(arr, b)
-  wb_append_bytes_as_uint(arr, c)
-  sha512_words_to_bytes(@sha2.Sha512::digest(arr))
+  wb_append_bytes(arr, a)
+  wb_append_bytes(arr, b)
+  wb_append_bytes(arr, c)
+  Bytes::from_array(@crypto.sha512(Bytes::from_array(arr)))
 }
 
 ///|
-fn wb_append_bytes_as_uint(arr : Array[UInt], bytes : BytesView) -> Unit {
+fn wb_append_bytes(arr : Array[Byte], bytes : BytesView) -> Unit {
   for byte in bytes {
-    arr.push(byte.to_uint())
+    arr.push(byte)
   }
 }
 
 ///|
+/// Input size used to drive multi-block streaming updates. 1024 is a multiple
+/// of the 128-byte SHA-512 block, so `wb_chunk_size` and `wb_chunk_size ± k`
+/// cover both block-aligned and straddling inputs.
+let wb_chunk_size : Int = 1024
+
+///|
 test "sha512 streaming helpers match direct digest across chunk boundaries" {
   let a = Bytes::makei(17, fn(i) { (i + 1).to_byte() })
-  let b = Bytes::makei(sha512_update_chunk_size + 19, fn(i) {
+  let b = Bytes::makei(wb_chunk_size + 19, fn(i) {
     ((i * 3 + 7) % 256).to_byte()
   })
-  let c = Bytes::makei(sha512_update_chunk_size * 2 + 5, fn(i) {
+  let c = Bytes::makei(wb_chunk_size * 2 + 5, fn(i) {
     ((i * 5 + 11) % 256).to_byte()
   })
   @test.assert_eq(sha512(a), direct_sha512_concat3(a, b"", b""))
@@ -308,25 +317,23 @@ test "lazy reduction: encode-decode roundtrip after repeated operations" {
 }
 
 ///|
-test "sha512 buffer reuse: exact chunk-size multiple and single byte" {
-  // Exact multiple of chunk size — every chunk is full, clear() path exercised
-  let exact = Bytes::makei(sha512_update_chunk_size * 2, fn(i) {
+test "sha512 block alignment: exact block multiple and single byte" {
+  // Exact multiple of the SHA-512 block size — no partial block is buffered
+  let exact = Bytes::makei(wb_chunk_size * 2, fn(i) {
     ((i * 7 + 13) % 256).to_byte()
   })
   @test.assert_eq(sha512(exact), direct_sha512_concat3(exact, b"", b""))
-  // Single byte — shorter than one chunk, buffer reused after a single clear
+  // Single byte — shorter than one block, only the padding path runs
   let single : Bytes = b"\x42"
   @test.assert_eq(sha512(single), direct_sha512_concat3(single, b"", b""))
 }
 
 ///|
-test "sha512 buffer reuse: concat with mixed chunk-aligned sizes" {
-  // One input exactly one chunk, another straddling a chunk boundary —
-  // verifies buffer is correctly cleared between sha512_update_bytes calls.
-  let aligned = Bytes::makei(sha512_update_chunk_size, fn(i) {
-    ((i + 3) % 256).to_byte()
-  })
-  let straddling = Bytes::makei(sha512_update_chunk_size + 1, fn(i) {
+test "sha512 block alignment: concat with mixed block-aligned sizes" {
+  // One input exactly block-aligned, another straddling a block boundary —
+  // verifies the digest state carries over correctly between `update` calls.
+  let aligned = Bytes::makei(wb_chunk_size, fn(i) { ((i + 3) % 256).to_byte() })
+  let straddling = Bytes::makei(wb_chunk_size + 1, fn(i) {
     ((i * 11 + 5) % 256).to_byte()
   })
   @test.assert_eq(

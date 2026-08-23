@@ -161,7 +161,7 @@ let verifying_key = signing_key.verifying_key()
 
 ## Implementation Notes
 
-This is a plain Ed25519 implementation using SHA-512 from `Tigls/mb-hash`.
+This is a plain Ed25519 implementation using SHA-512 from `moonbitlang/x/crypto`.
 It does not expose Ed25519ph or Ed25519ctx variants.
 
 Verification is intentionally strict: non-canonical point encodings, public
@@ -172,14 +172,14 @@ verification equation and is reported as a well-formed but invalid signature.
 
 The curve arithmetic uses MoonBit `BigInt`, extended Edwards coordinates,
 fixed-length 5-bit scalar windows, a cached basepoint table, and an interleaved
-double-scalar verification path. SHA-512 inputs are fed in bounded chunks instead
-of first materializing `prefix || message` or `R || A || message` as one large
-array. The signing and key-derivation path scans the full basepoint table for
-each scalar window instead of indexing it directly by a secret digit, but this
-package is still not constant-time because `BigInt` arithmetic, branching,
-allocation, and verification table access remain data-dependent. The cached key
-types avoid repeated setup work when signing or verifying multiple messages with
-the same key material.
+double-scalar verification path. SHA-512 inputs are streamed through successive
+`update` calls instead of first materializing `prefix || message` or
+`R || A || message` as one large buffer. The signing and key-derivation path
+scans the full basepoint table for each scalar window instead of indexing it
+directly by a secret digit, but this package is still not constant-time because
+`BigInt` arithmetic, branching, allocation, and verification table access remain
+data-dependent. The cached key types avoid repeated setup work when signing or
+verifying multiple messages with the same key material.
 
 ## Development
 
