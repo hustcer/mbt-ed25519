@@ -1,6 +1,6 @@
 name = "hustcer/ed25519"
 
-version = "0.5.2"
+version = "0.6.0"
 
 readme = "README.mbt.md"
 

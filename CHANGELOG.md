@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.0 - 2026-08-23
+
+The public API and Ed25519 behavior are unchanged; the minor bump reflects the
+swapped SHA-512 dependency.
+
+### Changed
+
+- Replace `Tigls/mb-hash@0.1.0` with the officially maintained
+  `moonbitlang/x@0.5.1` for SHA-512. Its `ByteSource` API consumes `BytesView`
+  directly, so the hand-rolled chunking layer (`sha512_update_chunk_size`,
+  `sha512_update_bytes`, and `sha512_words_to_bytes`) is no longer needed.
+
+### Performance
+
+- Signing a 1 MiB message drops from ~23.9 ms to ~10.2 ms in a local
+  `moon bench --release` run. License-sized payloads are unchanged within
+  measurement noise, since they are dominated by scalar multiplication.
+- The `cmd/openssl-interop` native release binary shrinks by about 30 KiB.
+
+### CI and Docs
+
+- Add a CI workflow running `moon fmt --check` plus `check`, `build`, and
+  `test` on all targets with `--deny-warn`, and verifying that
+  `pkg.generated.mbti` is regenerated.
+- Document the pinned Wycheproof corpus, its integrity check, and the
+  regeneration workflow in the README.
+
 ## v0.5.2 - 2026-08-11
 
 This patch release does not change the public API or Ed25519 behavior.

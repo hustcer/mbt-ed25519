@@ -16,7 +16,7 @@ Add the module dependency in `moon.mod`:
 
 ```text
 import {
-  "hustcer/ed25519@0.5.2",
+  "hustcer/ed25519@0.6.0",
 }
 ```
 
