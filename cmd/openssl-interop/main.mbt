@@ -48,7 +48,7 @@ fn hex_nibble(value : Int) -> String {
 
 ///|
 fn bytes_to_hex(bytes : Bytes) -> String {
-  let out = StringBuilder::new(size_hint=bytes.length() * 2)
+  let out = StringBuilder(size_hint=bytes.length() * 2)
   for byte in bytes {
     let v = byte.to_int()
     out.write_string(hex_nibble(v >> 4))

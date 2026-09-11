@@ -74,12 +74,12 @@ pub struct VerifyingKey {
 
 ///|
 fn base_point() -> ExtendedPoint {
-  extended_from_affine({ x: bx, y: by })
+  extended_from_affine({ x: bx, y: by, })
 }
 
 ///|
 fn extended_identity() -> ExtendedPoint {
-  { x: 0N, y: 1N, z: 1N, t: 0N }
+  { x: 0N, y: 1N, z: 1N, t: 0N, }
 }
 
 ///|
@@ -114,13 +114,13 @@ fn field_eq(a : BigInt, b : BigInt) -> Bool {
 
 ///|
 fn extended_from_affine(point : Point) -> ExtendedPoint {
-  { x: modp(point.x), y: modp(point.y), z: 1N, t: modp(point.x * point.y) }
+  { x: modp(point.x), y: modp(point.y), z: 1N, t: modp(point.x * point.y), }
 }
 
 ///|
 fn extended_to_affine(point : ExtendedPoint) -> Point {
   let iz = invp(point.z)
-  { x: modp(point.x * iz), y: modp(point.y * iz) }
+  { x: modp(point.x * iz), y: modp(point.y * iz), }
 }
 
 ///|
@@ -145,7 +145,7 @@ fn window5_table_has_prime_order(table : Array[ExtendedPoint]) -> Bool {
 
 ///|
 fn extended_neg(point : ExtendedPoint) -> ExtendedPoint {
-  { x: modp(-point.x), y: point.y, z: point.z, t: modp(-point.t) }
+  { x: modp(-point.x), y: point.y, z: point.z, t: modp(-point.t), }
 }
 
 ///|
@@ -192,7 +192,7 @@ fn extended_double(point : ExtendedPoint) -> ExtendedPoint {
 
 ///|
 fn extended_window5_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
-  let table : Array[ExtendedPoint] = Array::new(capacity=32)
+  let table : Array[ExtendedPoint] = Array(capacity=32)
   table.push(extended_identity())
   for i in 1..<32 {
     table.push(extended_add(table[i - 1], point))
@@ -209,7 +209,7 @@ fn scalar_window5_digits(s : BigInt) -> Array[Int] {
   if s < 0N {
     abort("scalar_window5_digits: scalar must be non-negative")
   }
-  let digits : Array[Int] = Array::new(capacity=51)
+  let digits : Array[Int] = Array(capacity=51)
   let mut n = s
   for _ in 0..<51 {
     digits.push((n % 32N).to_int())
@@ -404,7 +404,7 @@ fn decode_point(bytes : BytesView) -> Point raise Ed25519Error {
   if (x % 2N == 1N) != (sign == b'\x01') {
     x = modp(p - x)
   }
-  let point = { x, y }
+  let point = { x, y, }
   if encode_point(point)[:] != bytes {
     raise PointNotCanonical
   }
@@ -478,7 +478,7 @@ pub fn SigningKey::from_seed(seed : BytesView) -> SigningKey raise Ed25519Error 
   let (a, prefix) = expanded_secret(seed)
   let public_point = base_point_mul(a)
   let public_key = encode_extended_point(public_point)
-  { a, prefix, public_key, public_point }
+  { a, prefix, public_key, public_point, }
 }
 
 ///|
@@ -514,7 +514,10 @@ pub fn VerifyingKey::from_public_key(
   public_key : BytesView,
 ) -> VerifyingKey raise Ed25519Error {
   let neg_table = decode_neg_prime_order_window5_table(public_key)
-  { public_key: public_key.to_owned(), neg_public_key_window5_table: neg_table }
+  {
+    public_key: public_key.to_owned(),
+    neg_public_key_window5_table: neg_table,
+  }
 }
 
 ///|

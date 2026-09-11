@@ -37,9 +37,7 @@ test "sha512 byte order matches RFC8032 seed hash" {
 /// in a single call, so the streaming `sha512_concat*` helpers can be compared
 /// against a one-shot digest of the same byte string.
 fn direct_sha512_concat3(a : BytesView, b : BytesView, c : BytesView) -> Bytes {
-  let arr : Array[Byte] = Array::new(
-    capacity=a.length() + b.length() + c.length(),
-  )
+  let arr : Array[Byte] = Array(capacity=a.length() + b.length() + c.length())
   wb_append_bytes(arr, a)
   wb_append_bytes(arr, b)
   wb_append_bytes(arr, c)

@@ -1,9 +1,9 @@
 import {
   "moonbitlang/x/crypto",
-  "moonbitlang/core/bench",
 }
 
 import {
+  "moonbitlang/core/bench",
   "moonbitlang/core/test",
 } for "test"
 
