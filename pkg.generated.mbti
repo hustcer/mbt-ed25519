@@ -27,6 +27,11 @@ pub(all) suberror Ed25519Error {
   PublicKeyNotPrimeOrder
   SignatureSOutOfRange
 } derive(Eq, @debug.Debug)
+pub fn Ed25519Error::equal(Self, Self) -> Bool
+pub fn Ed25519Error::not_equal(Self, Self) -> Bool
+pub fn Ed25519Error::output(Self, &Logger) -> Unit
+pub fn Ed25519Error::to_repr(Self) -> @debug.Repr
+pub fn Ed25519Error::to_string(Self) -> String
 pub impl Show for Ed25519Error
 
 // Types and methods

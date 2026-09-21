@@ -17,6 +17,15 @@ pub(all) suberror Ed25519Error {
 } derive(Eq, Debug)
 
 ///|
+pub extend Ed25519Error with Eq::{equal, not_equal}
+
+///|
+pub extend Ed25519Error with Debug::{to_repr}
+
+///|
+pub extend Ed25519Error with Show::{output, to_string}
+
+///|
 /// Keep the exact pre-0.5 message texts so logs and the OpenSSL interop
 /// output remain stable; the structured payloads stay available to callers
 /// through pattern matching and `Debug`.
