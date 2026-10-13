@@ -1,5 +1,5 @@
 ///|
-fn hex_value(c : UInt16) -> UInt {
+fn hex_value(c : UInt16) -> UInt32 {
   if c >= 48 && c <= 57 {
     c.to_uint() - 48U
   } else if c >= 97 && c <= 102 {
@@ -24,7 +24,7 @@ fn hex(input : String) -> Bytes {
 }
 
 ///|
-fn with_byte_replaced(bytes : Bytes, index : Int, value : Byte) -> Bytes {
+fn with_byte_replaced(bytes : Bytes, index : Int32, value : Byte) -> Bytes {
   Bytes::makei(bytes.length(), fn(i) {
     if i == index {
       value

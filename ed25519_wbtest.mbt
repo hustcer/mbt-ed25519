@@ -1,5 +1,5 @@
 ///|
-fn wb_hex_value(c : UInt16) -> UInt {
+fn wb_hex_value(c : UInt16) -> UInt32 {
   if c >= 48 && c <= 57 {
     c.to_uint() - 48U
   } else if c >= 97 && c <= 102 {
@@ -55,7 +55,7 @@ fn wb_append_bytes(arr : Array[Byte], bytes : BytesView) -> Unit {
 /// Input size used to drive multi-block streaming updates. 1024 is a multiple
 /// of the 128-byte SHA-512 block, so `wb_chunk_size` and `wb_chunk_size ± k`
 /// cover both block-aligned and straddling inputs.
-let wb_chunk_size : Int = 1024
+let wb_chunk_size : Int32 = 1024
 
 ///|
 test "sha512 streaming helpers match direct digest across chunk boundaries" {
@@ -182,7 +182,7 @@ test "windowed scalar selection scans all digit slots" {
 }
 
 ///|
-fn reassemble_window5(digits : Array[Int]) -> BigInt {
+fn reassemble_window5(digits : Array[Int32]) -> BigInt {
   let mut acc = 0N
   let mut factor = 1N
   for d in digits {

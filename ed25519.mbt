@@ -205,11 +205,11 @@ fn extended_window5_table(point : ExtendedPoint) -> Array[ExtendedPoint] {
 /// Callers must pass 0 <= s < 2^255: clamped secrets (< 2^255) and mod-l
 /// scalars (< 2^253) both fit. Anything outside that range would silently
 /// lose its high bits or produce out-of-range digits, so abort instead.
-fn scalar_window5_digits(s : BigInt) -> Array[Int] {
+fn scalar_window5_digits(s : BigInt) -> Array[Int32] {
   if s < 0N {
     abort("scalar_window5_digits: scalar must be non-negative")
   }
-  let digits : Array[Int] = Array(capacity=51)
+  let digits : Array[Int32] = Array(capacity=51)
   let mut n = s
   for _ in 0..<51 {
     digits.push((n % 32N).to_int())
@@ -246,7 +246,7 @@ fn extended_mul_with_window5_table(
 ///|
 fn extended_select_window5(
   table : Array[ExtendedPoint],
-  digit : Int,
+  digit : Int32,
 ) -> ExtendedPoint {
   let mut selected = extended_identity()
   for i in 0..<32 {
@@ -303,7 +303,7 @@ fn bytes_le_to_bigint(bytes : BytesView) -> BigInt {
 }
 
 ///|
-fn bigint_to_le_bytes(value : BigInt, length : Int) -> Bytes {
+fn bigint_to_le_bytes(value : BigInt, length : Int32) -> Bytes {
   let be = value.to_octets(length~)
   // BigInt::to_octets returns >= length bytes; reject the overflow case so the
   // caller does not silently get the high-order bytes when value >= 2^(8*length).

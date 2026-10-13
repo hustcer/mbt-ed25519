@@ -1,5 +1,5 @@
 ///|
-fn bench_hex_value(c : UInt16) -> UInt {
+fn bench_hex_value(c : UInt16) -> UInt32 {
   if c >= 48 && c <= 57 {
     c.to_uint() - 48U
   } else if c >= 97 && c <= 102 {

@@ -1,5 +1,5 @@
 ///|
-fn hex_value(c : UInt16) -> UInt {
+fn hex_value(c : UInt16) -> UInt32 {
   if c >= 48 && c <= 57 {
     c.to_uint() - 48U
   } else if c >= 97 && c <= 102 {
@@ -24,7 +24,7 @@ fn hex_to_bytes(input : String) -> Bytes {
 }
 
 ///|
-fn hex_nibble(value : Int) -> String {
+fn hex_nibble(value : Int32) -> String {
   match value {
     0 => "0"
     1 => "1"

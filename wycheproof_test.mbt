@@ -5,7 +5,7 @@
 /// Source path: testvectors_v1/ed25519_test.json
 /// License: Apache-2.0, Copyright 2016-2026 The Wycheproof Authors.
 priv struct WycheproofCase {
-  tc_id : Int
+  tc_id : Int32
   message_hex : String
   signature_hex : String
   expected_valid : Bool
@@ -18,7 +18,7 @@ priv struct WycheproofGroup {
 }
 
 ///|
-fn wycheproof_hex_value(c : UInt16) -> UInt {
+fn wycheproof_hex_value(c : UInt16) -> UInt32 {
   if c >= 48 && c <= 57 {
     c.to_uint() - 48U
   } else if c >= 97 && c <= 102 {

@@ -4,9 +4,9 @@
 /// handle failure modes precisely; `Show` renders the same human-readable
 /// messages the pre-0.5 `Result[_, String]` API returned.
 pub(all) suberror Ed25519Error {
-  InvalidSeedLength(got~ : Int)
-  InvalidPublicKeyLength(got~ : Int)
-  InvalidSignatureLength(got~ : Int)
+  InvalidSeedLength(got~ : Int32)
+  InvalidPublicKeyLength(got~ : Int32)
+  InvalidSignatureLength(got~ : Int32)
   PointYOutOfRange
   PointNotOnCurve
   PointNotCanonical
