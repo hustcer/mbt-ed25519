@@ -1,6 +1,6 @@
 name = "hustcer/ed25519"
 
-version = "0.6.0"
+version = "0.6.1"
 
 readme = "README.mbt.md"
 
@@ -13,5 +13,5 @@ keywords = [ "ed25519", "signature", "crypto", "license" ]
 description = "A pure MoonBit Ed25519 signing and verification package."
 
 import {
-  "moonbitlang/x@0.5.1",
+  "moonbitlang/x@0.5.5",
 }
