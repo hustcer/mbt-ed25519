@@ -16,9 +16,9 @@ pub fn verify_result(BytesView, BytesView, BytesView) -> Bool raise Ed25519Error
 
 // Errors
 pub(all) suberror Ed25519Error {
-  InvalidSeedLength(got~ : Int)
-  InvalidPublicKeyLength(got~ : Int)
-  InvalidSignatureLength(got~ : Int)
+  InvalidSeedLength(got~ : Int32)
+  InvalidPublicKeyLength(got~ : Int32)
+  InvalidSignatureLength(got~ : Int32)
   PointYOutOfRange
   PointNotOnCurve
   PointNotCanonical
