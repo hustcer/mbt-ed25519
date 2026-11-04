@@ -15,6 +15,7 @@ pub fn verify(BytesView, BytesView, BytesView) -> Bool
 pub fn verify_result(BytesView, BytesView, BytesView) -> Bool raise Ed25519Error
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror Ed25519Error {
   InvalidSeedLength(got~ : Int32)
   InvalidPublicKeyLength(got~ : Int32)
@@ -26,7 +27,7 @@ pub(all) suberror Ed25519Error {
   SignatureRSmallOrder
   PublicKeyNotPrimeOrder
   SignatureSOutOfRange
-} derive(Eq, @debug.Debug)
+}
 pub fn Ed25519Error::equal(Self, Self) -> Bool
 pub fn Ed25519Error::not_equal(Self, Self) -> Bool
 pub fn Ed25519Error::output(Self, &Logger) -> Unit

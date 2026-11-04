@@ -3,6 +3,7 @@
 /// key parsing, and strict signature verification. Match on the variants to
 /// handle failure modes precisely; `Show` renders the same human-readable
 /// messages the pre-0.5 `Result[_, String]` API returned.
+#derive(Eq, Debug)
 pub(all) suberror Ed25519Error {
   InvalidSeedLength(got~ : Int32)
   InvalidPublicKeyLength(got~ : Int32)
@@ -14,7 +15,7 @@ pub(all) suberror Ed25519Error {
   SignatureRSmallOrder
   PublicKeyNotPrimeOrder
   SignatureSOutOfRange
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Ed25519Error with Eq::{equal, not_equal}
